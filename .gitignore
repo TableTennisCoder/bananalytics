@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+bin/
+.next/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test
+coverage/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.claude/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.test
+*.out
+vendor/
+
+# Package archives
+*.tgz

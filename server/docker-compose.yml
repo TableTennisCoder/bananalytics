@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rochade
+      POSTGRES_PASSWORD: rochade
+      POSTGRES_DB: rochade
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rochade"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rochade:
+    build: .
+    # No public ports — Caddy handles external traffic
+    expose:
+      - "8080"
+    environment:
+      ROCHADE_PORT: "8080"
+      ROCHADE_DB_DSN: "postgres://rochade:rochade@postgres:5432/rochade?sslmode=disable"
+      ROCHADE_LOG_LEVEL: "info"
+      ROCHADE_RATE_LIMIT_RPM: "1000"
+      ROCHADE_CORS_ORIGINS: "${ROCHADE_CORS_ORIGINS:-*}"
+      ROCHADE_DB_MAX_CONNS: "25"
+      ROCHADE_DB_MIN_CONNS: "5"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ROCHADE_DOMAIN: "${ROCHADE_DOMAIN:-localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - rochade
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

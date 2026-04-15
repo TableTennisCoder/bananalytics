@@ -1,0 +1,27 @@
+# Production: Replace with your actual domain
+# Caddy automatically provisions Let's Encrypt TLS certificates
+{$ROCHADE_DOMAIN:localhost} {
+	# Reverse proxy to Go server
+	reverse_proxy rochade:8080
+
+	# Security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# Request size limit (matches Go server's 5MB limit)
+	request_body {
+		max_size 5MB
+	}
+
+	# Access log
+	log {
+		output stdout
+		format json
+	}
+}
