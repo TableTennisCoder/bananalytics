@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
+import { ProjectGuard } from "@/components/dashboard/project-guard";
 
 export default function DashboardLayout({
   children,
@@ -11,7 +12,9 @@ export default function DashboardLayout({
       <Sidebar />
       <div className="flex-1 pl-60">
         <Topbar />
-        <main className="p-6">{children}</main>
+        <main className="p-6">
+          <ProjectGuard>{children}</ProjectGuard>
+        </main>
       </div>
     </div>
   );

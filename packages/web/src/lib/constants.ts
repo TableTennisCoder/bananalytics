@@ -1,8 +1,14 @@
 /** Go backend base URL (server-side only). */
-export const BACKEND_URL = process.env.ROCHADE_BACKEND_URL || "http://localhost:8080";
+export const BACKEND_URL = process.env.BANANA_BACKEND_URL || "http://localhost:8080";
 
-/** Cookie name for the encrypted secret key. */
-export const AUTH_COOKIE = "rochade_session";
+/** Cookie name for the encrypted secret key (legacy — being phased out). */
+export const AUTH_COOKIE = "banana_session";
+
+/** Cookie name for the user authentication session token. */
+export const USER_SESSION_COOKIE = "banana_user_session";
+
+/** Cookie name for the active project ID (which project the user is viewing). */
+export const ACTIVE_PROJECT_COOKIE = "banana_active_project";
 
 /** Default polling intervals in milliseconds. */
 export const POLL_INTERVAL = {

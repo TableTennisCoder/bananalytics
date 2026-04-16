@@ -17,21 +17,56 @@ import {
   Sparkles,
   Copy,
   Check,
+  MapPin,
+  Cloud,
+  Wrench,
 } from "lucide-react";
 
-const sidebarItems = [
-  { id: "quick-start", label: "Quick Start", icon: Terminal },
+type DocsPath = "cloud" | "self-host";
+
+const cloudSidebar = [
+  { id: "cloud-start", label: "Get Your Keys", icon: Key },
   { id: "ai-setup", label: "AI Setup", icon: Sparkles },
   { id: "sdk", label: "React Native SDK", icon: Smartphone },
   { id: "event-strategy", label: "Event Strategy", icon: Target },
   { id: "api", label: "API Reference", icon: Server },
-  { id: "hosting", label: "Self-Hosting", icon: Globe },
+  { id: "privacy", label: "Privacy", icon: Shield },
+];
+
+const selfHostSidebar = [
+  { id: "quick-start", label: "Quick Start", icon: Terminal },
+  { id: "hosting", label: "Production Deploy", icon: Globe },
+  { id: "geoip", label: "GeoIP Setup", icon: MapPin },
   { id: "config", label: "Configuration", icon: Key },
+  { id: "ai-setup", label: "AI Setup", icon: Sparkles },
+  { id: "sdk", label: "React Native SDK", icon: Smartphone },
+  { id: "event-strategy", label: "Event Strategy", icon: Target },
+  { id: "api", label: "API Reference", icon: Server },
   { id: "privacy", label: "Privacy", icon: Shield },
 ];
 
 export default function DocsPage() {
+  const [path, setPath] = useState<DocsPath>("self-host");
   const [activeSection, setActiveSection] = useState("quick-start");
+
+  // Restore the user's last choice from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("bananalytics-docs-path");
+    if (saved === "cloud" || saved === "self-host") {
+      setPath(saved);
+      setActiveSection(saved === "cloud" ? "cloud-start" : "quick-start");
+    }
+  }, []);
+
+  const handlePathChange = (newPath: DocsPath) => {
+    setPath(newPath);
+    setActiveSection(newPath === "cloud" ? "cloud-start" : "quick-start");
+    localStorage.setItem("bananalytics-docs-path", newPath);
+    // Scroll to top so the user sees their first step
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const sidebarItems = path === "cloud" ? cloudSidebar : selfHostSidebar;
 
   // Track which section is in view
   useEffect(() => {
@@ -52,7 +87,8 @@ export default function DocsPage() {
     }
 
     return () => observer.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,20 +140,154 @@ export default function DocsPage() {
                 })}
               </div>
             </div>
+
+            {/* Current path indicator + switch */}
+            <div className="mt-8 rounded-md border border-border bg-card/30 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                Viewing
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                {path === "cloud" ? (
+                  <Cloud className="h-3 w-3 text-primary" />
+                ) : (
+                  <Wrench className="h-3 w-3 text-primary" />
+                )}
+                {path === "cloud" ? "Cloud" : "Self-Host"} setup
+              </p>
+              <button
+                onClick={() =>
+                  handlePathChange(path === "cloud" ? "self-host" : "cloud")
+                }
+                className="mt-2 text-[11px] text-muted-foreground/70 hover:text-primary transition-colors cursor-pointer"
+              >
+                Switch to {path === "cloud" ? "Self-Host" : "Cloud"} →
+              </button>
+            </div>
           </nav>
         </aside>
 
         {/* Content */}
         <main className="mx-auto max-w-4xl flex-1 px-6 py-16 lg:px-12">
-          <div className="mb-12">
+          <div className="mb-10">
             <h1 className="text-4xl font-bold">Documentation</h1>
             <p className="mt-3 text-lg text-muted-foreground">
               Everything you need to set up and use Bananalytics Analytics
             </p>
           </div>
 
+          {/* Path selector — choose your setup style */}
+          <div className="mb-12">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+              How are you running Bananalytics?
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PathCard
+                active={path === "cloud"}
+                onClick={() => handlePathChange("cloud")}
+                icon={<Cloud className="h-5 w-5" />}
+                title="Bananalytics Cloud"
+                description="Sign up, get keys, integrate the SDK. We handle the infra."
+              />
+              <PathCard
+                active={path === "self-host"}
+                onClick={() => handlePathChange("self-host")}
+                icon={<Wrench className="h-5 w-5" />}
+                title="Self-Host"
+                description="Deploy with Docker on your own VPS. Full control, no fees."
+              />
+            </div>
+          </div>
+
           <div className="space-y-16">
-          {/* Quick Start */}
+          {/* Cloud Quick Start — only visible in cloud path */}
+          {path === "cloud" && (
+          <DocSection
+            icon={<Cloud className="h-5 w-5" />}
+            title="Get Your Keys"
+            id="cloud-start"
+          >
+            <p>
+              You&apos;re three clicks away from tracking events. The infra is
+              already running for you — just grab your keys and drop them into
+              your app.
+            </p>
+
+            <p className="text-sm pt-2">
+              <strong>1. Create your account.</strong> Head to{" "}
+              <a
+                href="https://app.bananalytics.com/signup"
+                className="text-primary hover:underline"
+              >
+                app.bananalytics.com/signup
+              </a>{" "}
+              and register. Email + password, takes 30 seconds.
+            </p>
+
+            <p className="text-sm pt-2">
+              <strong>2. Create your first project.</strong> After signup
+              you&apos;re dropped into the dashboard. Click{" "}
+              <strong>&quot;New Project&quot;</strong>, give it a name, and
+              submit. You&apos;ll immediately see two keys:
+            </p>
+            <ul className="space-y-1.5 text-sm pl-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>
+                  <code className="text-primary font-mono text-xs">rk_…</code>{" "}
+                  — <strong>write key</strong>. Goes into your React Native app
+                  (the SDK&apos;s <code className="font-mono text-xs">apiKey</code>{" "}
+                  option). Used for ingesting events. Safe to ship in the bundle.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>
+                  <code className="text-primary font-mono text-xs">sk_…</code>{" "}
+                  — <strong>secret key</strong>. Used for querying your data via
+                  the API. The dashboard uses it server-side — never expose it
+                  in client code.
+                </span>
+              </li>
+            </ul>
+            <p className="text-sm">
+              Copy both with the buttons in the modal. You can always re-view
+              and rotate them later from{" "}
+              <strong>Settings → API Keys</strong> on any project.
+            </p>
+
+            <p className="text-sm pt-2">
+              <strong>3. Drop the write key into your app.</strong> Continue to{" "}
+              <a href="#sdk" className="text-primary hover:underline">
+                React Native SDK
+              </a>{" "}
+              below — install the package, paste your{" "}
+              <code className="font-mono text-xs">rk_…</code> key, and you&apos;re
+              tracking events. Your endpoint URL is{" "}
+              <code className="font-mono text-xs">
+                https://ingest.bananalytics.com
+              </code>
+              .
+            </p>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm">
+                <strong>Looking for the infra docs?</strong> Cloud users
+                don&apos;t need to think about Postgres, Docker, or GeoIP —
+                that&apos;s all managed for you. Switch to the{" "}
+                <button
+                  onClick={() => handlePathChange("self-host")}
+                  className="text-primary hover:underline cursor-pointer"
+                >
+                  Self-Host
+                </button>{" "}
+                tab above if you ever decide to run your own instance.
+              </p>
+            </div>
+          </DocSection>
+          )}
+
+          {/* Self-Host Quick Start — only visible in self-host path */}
+          {path === "self-host" && (
           <DocSection
             icon={<Terminal className="h-5 w-5" />}
             title="Quick Start"
@@ -127,20 +297,264 @@ export default function DocsPage() {
             <CodeBlock title="1. Clone & start the backend">{`git clone https://github.com/bananalytics-analytics/bananalytics.git
 cd bananalytics/server
 docker-compose up -d`}</CodeBlock>
-            <CodeBlock title="2. Run database migrations">{`docker exec -i server-postgres-1 psql -U bananalytics -d bananalytics \\
-  < internal/storage/postgres/migrations/001_create_projects.up.sql
-docker exec -i server-postgres-1 psql -U bananalytics -d bananalytics \\
-  < internal/storage/postgres/migrations/002_create_events.up.sql
-docker exec -i server-postgres-1 psql -U bananalytics -d bananalytics \\
-  < internal/storage/postgres/migrations/003_add_key_hashes.up.sql
-docker exec -i server-postgres-1 psql -U bananalytics -d bananalytics \\
-  < internal/storage/postgres/migrations/004_add_geo.up.sql`}</CodeBlock>
-            <CodeBlock title="3. Create a project">{`curl -X POST http://localhost:8080/v1/projects \\
-  -H "Content-Type: application/json" \\
-  -d '{"name":"My App"}'
+            <p className="text-sm text-muted-foreground">
+              That&apos;s it for the backend. Postgres + the Go server start
+              together, and database migrations are applied automatically on
+              startup — no manual SQL needed. Verify with{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                docker-compose logs rochade
+              </code>{" "}
+              — you should see{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                migrations: applied successfully
+              </code>{" "}
+              and{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                server starting port=8080
+              </code>
+              .
+            </p>
 
-# Returns: { "write_key": "rk_...", "secret_key": "sk_..." }`}</CodeBlock>
+            <p className="text-sm pt-2">
+              <strong>2. Create your admin account.</strong> Open{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                http://localhost:3000
+              </code>{" "}
+              in your browser. The first time you visit, you&apos;ll be
+              redirected to{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                /setup
+              </code>{" "}
+              to register the first admin user (name, email, password). This
+              page is one-time only — once an admin exists, it returns 410 Gone
+              and everyone has to sign in via{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                /login
+              </code>
+              .
+            </p>
+
+            <p className="text-sm pt-2">
+              <strong>3. Create your first project.</strong> After signup
+              you&apos;re dropped into the dashboard. Click{" "}
+              <strong>&quot;New Project&quot;</strong> (or use the project
+              switcher in the topbar), give it a name, and submit. You&apos;ll
+              immediately see two keys:
+            </p>
+            <ul className="space-y-1.5 text-sm pl-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>
+                  <code className="text-primary font-mono text-xs">rk_…</code>{" "}
+                  — <strong>write key</strong>. Goes into your React Native app
+                  (the SDK&apos;s <code className="font-mono text-xs">apiKey</code>{" "}
+                  option). Used for ingesting events. Safe to ship in the bundle.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>
+                  <code className="text-primary font-mono text-xs">sk_…</code>{" "}
+                  — <strong>secret key</strong>. Used for querying your data via
+                  the API (e.g. <code className="font-mono text-xs">/v1/query/events</code>
+                  ). The dashboard stores it server-side per session — never
+                  expose it in client code.
+                </span>
+              </li>
+            </ul>
+            <p className="text-sm">
+              Copy both with the buttons in the modal. You can always re-view
+              and rotate them later from{" "}
+              <strong>Settings → API Keys</strong> on any project.
+            </p>
+
+            <p className="text-sm pt-2">
+              <strong>4. Drop the write key into your app.</strong> Jump to the{" "}
+              <a href="#sdk" className="text-primary hover:underline">
+                React Native SDK
+              </a>{" "}
+              section below — install the package, paste your{" "}
+              <code className="font-mono text-xs">rk_…</code> key, and you&apos;re
+              tracking events.
+            </p>
           </DocSection>
+          )}
+
+          {/* Self-Host infrastructure — only visible in self-host path */}
+          {path === "self-host" && (
+          <>
+          <DocSection
+            icon={<Globe className="h-5 w-5" />}
+            title="Production Deploy"
+            id="hosting"
+          >
+            <p>Deploy on any VPS with Docker. Recommended: Hetzner CX22 (~$4/month).</p>
+            <CodeBlock title="Production deployment">{`# SSH into your server
+ssh root@your-server-ip
+
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# Clone and start
+git clone https://github.com/bananalytics-analytics/bananalytics.git
+cd bananalytics/server
+
+# Set your domain (Caddy auto-provisions SSL)
+echo "BANANA_DOMAIN=analytics.yourdomain.com" > .env
+echo "BANANA_CORS_ORIGINS=https://yourdomain.com" >> .env
+
+# Start everything (Postgres + Go server + Caddy HTTPS)
+docker-compose up -d`}</CodeBlock>
+            <p className="mt-4">
+              Point your domain&apos;s DNS A-record to your server IP. Caddy
+              handles SSL automatically via Let&apos;s Encrypt.
+            </p>
+            <p className="mt-4 text-sm">
+              <strong>Then claim your instance.</strong> Open{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                https://analytics.yourdomain.com/setup
+              </code>{" "}
+              in your browser <strong>immediately</strong> after the first
+              start. The setup page is publicly reachable until the first admin
+              user is created — if anyone else hits it before you do, they
+              own the instance. Register your admin account, then the setup
+              endpoint returns 410 Gone forever.
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              From there, sign in, create a project, and use the{" "}
+              <code className="font-mono text-xs">rk_…</code> write key in your
+              app. See <a href="#quick-start" className="text-primary hover:underline">Quick Start</a> for the full walkthrough.
+            </p>
+          </DocSection>
+
+          {/* GeoIP Setup */}
+          <DocSection
+            icon={<MapPin className="h-5 w-5" />}
+            title="GeoIP Setup"
+            id="geoip"
+          >
+            <p>
+              Bananalytics uses MaxMind&apos;s free GeoLite2 database to map
+              user IP addresses to countries and cities. This powers the 3D
+              globe, the geography dashboard, and the &quot;Top Country&quot;
+              KPI on your overview.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <strong>Without this setup, all geo features will be empty.</strong>
+              {" "}The server runs fine — it just won&apos;t enrich events with
+              location data. Lookups happen locally on your server, so no IP
+              data ever leaves your infrastructure.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              1. Get a free MaxMind license key
+            </h4>
+            <p>
+              Sign up at{" "}
+              <a
+                href="https://www.maxmind.com/en/geolite2/signup"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                maxmind.com/en/geolite2/signup
+              </a>{" "}
+              (free, takes 30 seconds). After confirming your email, go to
+              &quot;My License Key&quot; → &quot;Generate new license key&quot;.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              2. Download the database
+            </h4>
+            <p>
+              The repository ships with a download script. Run it in the{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                server/
+              </code>{" "}
+              directory:
+            </p>
+            <CodeBlock title="macOS / Linux">{`export MAXMIND_LICENSE_KEY=your_key_here
+./scripts/download-geoip.sh`}</CodeBlock>
+            <CodeBlock title="Windows (PowerShell)">{`$env:MAXMIND_LICENSE_KEY = "your_key_here"
+.\\scripts\\download-geoip.ps1`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              The script downloads ~70 MB to{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                ./geoip/GeoLite2-City.mmdb
+              </code>
+              . That directory is already mounted into the Docker container
+              and gitignored.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              3. Restart the server
+            </h4>
+            <CodeBlock>{`docker-compose restart rochade`}</CodeBlock>
+            <p>
+              You should see{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                GeoIP database loaded
+              </code>{" "}
+              in the logs (instead of{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                GeoIP disabled
+              </code>
+              ). All new events will now be enriched with country, city, and
+              coordinates.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              4. Keep it fresh (optional)
+            </h4>
+            <p>
+              MaxMind updates the database weekly. To stay current, re-run the
+              script monthly — or add a cron job:
+            </p>
+            <CodeBlock title="Cron — first Sunday of every month, 3 AM">{`0 3 1-7 * 0 cd /path/to/bananalytics/server && \\
+  MAXMIND_LICENSE_KEY=xxx ./scripts/download-geoip.sh && \\
+  docker-compose restart rochade`}</CodeBlock>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm">
+                <strong>Privacy note:</strong> The lookup happens entirely
+                on your server. The MaxMind database is local — no IP
+                addresses are ever sent to MaxMind or any third party. Only
+                the resolved country / city are stored alongside the event.
+              </p>
+            </div>
+          </DocSection>
+
+          {/* Environment Variables */}
+          <DocSection
+            icon={<Key className="h-5 w-5" />}
+            title="Configuration"
+            id="config"
+          >
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">Variable</th>
+                    <th className="px-4 py-2 text-left font-medium">Default</th>
+                    <th className="px-4 py-2 text-left font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <ConfigRow option="BANANA_PORT" default="8080" desc="HTTP server port" />
+                  <ConfigRow option="BANANA_DB_DSN" default="required" desc="PostgreSQL connection string" />
+                  <ConfigRow option="BANANA_LOG_LEVEL" default="info" desc="debug, info, warn, error" />
+                  <ConfigRow option="BANANA_RATE_LIMIT_RPM" default="1000" desc="Requests/min per API key" />
+                  <ConfigRow option="BANANA_IP_RATE_LIMIT_RPM" default="300" desc="Requests/min per IP" />
+                  <ConfigRow option="BANANA_CORS_ORIGINS" default="*" desc="Allowed origins" />
+                  <ConfigRow option="BANANA_DB_MAX_CONNS" default="25" desc="Max DB connections" />
+                  <ConfigRow option="BANANA_GEOIP_DB" default="" desc="Path to GeoLite2-City.mmdb" />
+                  <ConfigRow option="BANANA_DOMAIN" default="localhost" desc="Domain for Caddy HTTPS" />
+                </tbody>
+              </table>
+            </div>
+          </DocSection>
+          </>
+          )}
 
           {/* AI Setup */}
           <DocSection
@@ -663,9 +1077,25 @@ Bananalytics.track('payment_failed', {
               responseExample={`{ "active_users": 42, "events_last_minute": 128, "recent_events": [...] }`}
             />
 
-            <EndpointDoc method="POST" path="/v1/projects" auth="None" description="Create a new project. Returns API keys."
+            <EndpointDoc method="POST" path="/v1/projects" auth="Session" description="Create a new project. Requires a logged-in user (sets owner = current user). The new project's write_key and secret_key are returned once and only once — store them immediately."
               bodyExample={`{ "name": "My App" }`}
               responseExample={`{ "id": "uuid", "name": "My App", "write_key": "rk_...", "secret_key": "sk_..." }`}
+              errorCodes={[
+                { code: 401, desc: "Not signed in (no banana_user_session cookie)" },
+                { code: 429, desc: "Project-creation rate limit exceeded (5/min/IP)" },
+              ]}
+            />
+
+            <EndpointDoc method="GET" path="/v1/projects" auth="Session" description="List all projects the current user belongs to."
+              responseExample={`{ "projects": [{ "id": "uuid", "name": "My App", "role": "owner" }] }`}
+            />
+
+            <EndpointDoc method="POST" path="/v1/projects/{id}/keys/rotate" auth="Session (owner)" description="Generate new write_key and secret_key for the project. The old keys stop working immediately — update your app before rotating in production."
+              responseExample={`{ "write_key": "rk_new...", "secret_key": "sk_new..." }`}
+              errorCodes={[
+                { code: 401, desc: "Not signed in" },
+                { code: 403, desc: "Signed in but not the owner of this project" },
+              ]}
             />
 
             {/* Error codes */}
@@ -686,65 +1116,6 @@ Bananalytics.track('payment_failed', {
                   <ConfigRow option="413" default="PAYLOAD_TOO_LARGE" desc="Request body exceeds 5MB" />
                   <ConfigRow option="429" default="RATE_LIMITED" desc="Too many requests" />
                   <ConfigRow option="500" default="INTERNAL_ERROR" desc="Server error" />
-                </tbody>
-              </table>
-            </div>
-          </DocSection>
-
-          {/* Self-Hosting */}
-          <DocSection
-            icon={<Globe className="h-5 w-5" />}
-            title="Self-Hosting"
-            id="hosting"
-          >
-            <p>Deploy on any VPS with Docker. Recommended: Hetzner CX22 (~$4/month).</p>
-            <CodeBlock title="Production deployment">{`# SSH into your server
-ssh root@your-server-ip
-
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-
-# Clone and start
-git clone https://github.com/bananalytics-analytics/bananalytics.git
-cd bananalytics/server
-
-# Set your domain (Caddy auto-provisions SSL)
-echo "ROCHADE_DOMAIN=analytics.yourdomain.com" > .env
-echo "ROCHADE_CORS_ORIGINS=https://yourdomain.com" >> .env
-
-# Start everything (Postgres + Go server + Caddy HTTPS)
-docker-compose up -d`}</CodeBlock>
-            <p className="mt-4">
-              Point your domain&apos;s DNS A-record to your server IP. Caddy
-              handles SSL automatically via Let&apos;s Encrypt.
-            </p>
-          </DocSection>
-
-          {/* Environment Variables */}
-          <DocSection
-            icon={<Key className="h-5 w-5" />}
-            title="Configuration"
-            id="config"
-          >
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-card">
-                    <th className="px-4 py-2 text-left font-medium">Variable</th>
-                    <th className="px-4 py-2 text-left font-medium">Default</th>
-                    <th className="px-4 py-2 text-left font-medium">Description</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  <ConfigRow option="ROCHADE_PORT" default="8080" desc="HTTP server port" />
-                  <ConfigRow option="ROCHADE_DB_DSN" default="required" desc="PostgreSQL connection string" />
-                  <ConfigRow option="ROCHADE_LOG_LEVEL" default="info" desc="debug, info, warn, error" />
-                  <ConfigRow option="ROCHADE_RATE_LIMIT_RPM" default="1000" desc="Requests/min per API key" />
-                  <ConfigRow option="ROCHADE_IP_RATE_LIMIT_RPM" default="300" desc="Requests/min per IP" />
-                  <ConfigRow option="ROCHADE_CORS_ORIGINS" default="*" desc="Allowed origins" />
-                  <ConfigRow option="ROCHADE_DB_MAX_CONNS" default="25" desc="Max DB connections" />
-                  <ConfigRow option="ROCHADE_GEOIP_DB" default="" desc="Path to GeoLite2-City.mmdb" />
-                  <ConfigRow option="ROCHADE_DOMAIN" default="localhost" desc="Domain for Caddy HTTPS" />
                 </tbody>
               </table>
             </div>
@@ -850,6 +1221,58 @@ function AiPromptCard({ children }: { children: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function PathCard({
+  active,
+  onClick,
+  icon,
+  title,
+  description,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "group relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all cursor-pointer",
+        active
+          ? "border-primary bg-primary/[0.06] shadow-[0_0_0_1px_rgba(255,214,10,0.4)]"
+          : "border-border bg-card/30 hover:border-primary/40 hover:bg-card/60",
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+          active
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground group-hover:text-foreground",
+        )}
+      >
+        {icon}
+      </div>
+      <div>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {active && (
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+              Selected
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+          {description}
+        </p>
+      </div>
+    </button>
   );
 }
 

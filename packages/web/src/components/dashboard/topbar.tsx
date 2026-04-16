@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, ExternalLink } from "lucide-react";
+import { ProjectSwitcher } from "@/components/dashboard/project-switcher";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Overview",
@@ -14,6 +15,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/journey": "User Journey",
   "/dashboard/geo": "Geography",
   "/dashboard/settings": "Settings",
+  "/dashboard/projects/new": "New Project",
 };
 
 export function Topbar() {
@@ -30,8 +32,9 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-sm">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+        <ProjectSwitcher />
       </div>
       <div className="flex items-center gap-2">
         <a
