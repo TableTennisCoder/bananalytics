@@ -20,6 +20,7 @@ import {
   MapPin,
   Cloud,
   Wrench,
+  Gauge,
 } from "lucide-react";
 
 type DocsPath = "cloud" | "self-host";
@@ -36,6 +37,7 @@ const cloudSidebar = [
 const selfHostSidebar = [
   { id: "quick-start", label: "Quick Start", icon: Terminal },
   { id: "hosting", label: "Production Deploy", icon: Globe },
+  { id: "capacity", label: "Capacity & Scaling", icon: Gauge },
   { id: "geoip", label: "GeoIP Setup", icon: MapPin },
   { id: "config", label: "Configuration", icon: Key },
   { id: "ai-setup", label: "AI Setup", icon: Sparkles },
@@ -425,6 +427,207 @@ docker-compose up -d`}</CodeBlock>
               <code className="font-mono text-xs">rk_…</code> write key in your
               app. See <a href="#quick-start" className="text-primary hover:underline">Quick Start</a> for the full walkthrough.
             </p>
+          </DocSection>
+
+          {/* Capacity & Scaling */}
+          <DocSection
+            icon={<Gauge className="h-5 w-5" />}
+            title="Capacity & Scaling"
+            id="capacity"
+          >
+            <p>
+              Bananalytics is designed to run lean. The Go backend is a single
+              static binary, Postgres uses a partitioned events table, and the
+              SDK batches events to keep network traffic minimal. The result:
+              you can run the entire stack &mdash; including your Next.js
+              dashboard &mdash; on a $5 server for a long time before you need
+              to scale up.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">What&apos;s actually using your RAM</h4>
+            <p>
+              On a typical Hetzner CX22 (2 vCPU, 4 GB RAM) running everything
+              co-located, here&apos;s the memory budget at idle vs. modest
+              load:
+            </p>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">Service</th>
+                    <th className="px-4 py-2 text-left font-medium">Idle</th>
+                    <th className="px-4 py-2 text-left font-medium">Under load</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr><td className="px-4 py-2 font-mono text-xs">Ubuntu base + sshd</td><td className="px-4 py-2 text-muted-foreground">~300 MB</td><td className="px-4 py-2 text-muted-foreground">~300 MB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Docker daemon</td><td className="px-4 py-2 text-muted-foreground">~100 MB</td><td className="px-4 py-2 text-muted-foreground">~100 MB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">PostgreSQL 16</td><td className="px-4 py-2 text-muted-foreground">~150 MB</td><td className="px-4 py-2 text-muted-foreground">~400&ndash;600 MB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">bananalytics (Go)</td><td className="px-4 py-2 text-muted-foreground">~30 MB</td><td className="px-4 py-2 text-muted-foreground">~80&ndash;150 MB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Next.js dashboard</td><td className="px-4 py-2 text-muted-foreground">~250 MB</td><td className="px-4 py-2 text-muted-foreground">~400&ndash;500 MB</td></tr>
+                  <tr className="bg-primary/[0.04]"><td className="px-4 py-2 font-semibold">Total</td><td className="px-4 py-2 font-semibold">~830 MB</td><td className="px-4 py-2 font-semibold">~1.3&ndash;1.7 GB</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              You&apos;ll sit at ~25% RAM idle, ~40% under normal use. Plenty
+              of headroom on a 4 GB box.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">Event throughput</h4>
+            <p>
+              The Go server is never the bottleneck &mdash; Postgres is. With
+              the default config on 2 vCPU + 4 GB:
+            </p>
+            <ul className="space-y-1.5 text-sm pl-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Sustained ingest:</strong> ~500&ndash;1,000 events/second</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Peak burst:</strong> ~2,000 events/second (batched)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Per day sustained:</strong> ~40&ndash;80 million events</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Per month theoretical max:</strong> ~1&ndash;2 billion events</span>
+              </li>
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              For comparison, Mixpanel charges ~$2,800/month for 1B events
+              (at $0.28/1K).
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">Disk is the real limit</h4>
+            <p>
+              Each event row is ~300&ndash;700 bytes in Postgres (event name,
+              properties JSON, IDs, timestamps, geo, indexes). Including
+              index overhead and WAL:
+            </p>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">Events stored</th>
+                    <th className="px-4 py-2 text-left font-medium">Approx disk used</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr><td className="px-4 py-2">1 million</td><td className="px-4 py-2 text-muted-foreground">~1 GB</td></tr>
+                  <tr><td className="px-4 py-2">10 million</td><td className="px-4 py-2 text-muted-foreground">~8&ndash;12 GB</td></tr>
+                  <tr><td className="px-4 py-2">30 million</td><td className="px-4 py-2 text-muted-foreground">~25&ndash;30 GB</td></tr>
+                  <tr><td className="px-4 py-2">50 million</td><td className="px-4 py-2 text-destructive">~40 GB &mdash; disk full</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-sm">
+              <strong>Practical capacity of a CX22:</strong> ~30&ndash;40
+              million events stored. If you average 50 events per active user
+              per day:
+            </p>
+            <ul className="space-y-1.5 text-sm pl-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>1K MAU</strong> &rarr; ~50K events/day &rarr; <strong>years of headroom</strong></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>10K MAU</strong> &rarr; ~500K events/day &rarr; <strong>~2 months on disk</strong></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>100K MAU</strong> &rarr; ~5M events/day &rarr; <strong>~6 days on disk</strong> &mdash; needs upgrade</span>
+              </li>
+            </ul>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">Recommended specs by app stage</h4>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">App stage</th>
+                    <th className="px-4 py-2 text-left font-medium">Hetzner box</th>
+                    <th className="px-4 py-2 text-left font-medium">Cost / mo</th>
+                    <th className="px-4 py-2 text-left font-medium">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr className="bg-primary/[0.04]">
+                    <td className="px-4 py-2 font-medium">MVP &mdash; first 1K users</td>
+                    <td className="px-4 py-2 font-mono text-xs">CX22 &middot; 2/4/40</td>
+                    <td className="px-4 py-2 font-bold text-primary">€4.75</td>
+                    <td className="px-4 py-2 text-muted-foreground">6+ months runway</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">10K&ndash;50K MAU</td>
+                    <td className="px-4 py-2 font-mono text-xs">CX32 &middot; 4/8/80</td>
+                    <td className="px-4 py-2">~€7</td>
+                    <td className="px-4 py-2 text-muted-foreground">More disk runway, smoother queries</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">50K&ndash;200K MAU</td>
+                    <td className="px-4 py-2 font-mono text-xs">CX42 &middot; 8/16/160</td>
+                    <td className="px-4 py-2">~€15</td>
+                    <td className="px-4 py-2 text-muted-foreground">Better Postgres caching, big-query headroom</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">200K+ MAU</td>
+                    <td className="px-4 py-2 font-mono text-xs">Dedicated DB box</td>
+                    <td className="px-4 py-2">~€30+</td>
+                    <td className="px-4 py-2 text-muted-foreground">Split Postgres onto its own VM via private network</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">When to upgrade</h4>
+            <p>Watch for these signals:</p>
+            <ul className="space-y-1.5 text-sm pl-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Disk &gt; 70% full</strong> &rarr; attach a Hetzner Volume (€0.044/GB/mo, separate block storage) and mount it on{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">/var/lib/docker/volumes/server_pgdata</code>
+                  . Cheaper than upgrading the whole VM.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Postgres queries &gt; 2s</strong> on the dashboard &rarr; bump to CX32 (more shared_buffers cache hits).</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Ingest p99 latency &gt; 100ms</strong> &rarr; add CPU; or move ratelimit/auth caches to Postgres-backed store and load-balance two backends behind your reverse proxy.</span>
+              </li>
+            </ul>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">Monitoring commands</h4>
+            <CodeBlock title="Quick health check">{`# Container resource usage (run on the server)
+docker stats
+
+# Disk usage
+df -h
+docker exec server-postgres-1 psql -U bananalytics -d bananalytics \\
+  -c "SELECT pg_size_pretty(pg_database_size('bananalytics'));"
+
+# Slow queries (last 24h)
+docker-compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\\}"`}</CodeBlock>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm">
+                <strong>Tip:</strong> Hetzner lets you resize the VM with the
+                data volume intact &mdash; ~30 seconds of downtime. No reason
+                to over-provision now. Start small, grow as needed.
+              </p>
+            </div>
           </DocSection>
 
           {/* GeoIP Setup */}

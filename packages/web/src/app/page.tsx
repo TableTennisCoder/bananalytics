@@ -196,6 +196,76 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Scale & Performance */}
+      <section id="scale" className="relative border-t border-white/[0.04]">
+        <div className="pointer-events-none absolute inset-y-0 left-4 right-4 mx-auto max-w-[1120px] hidden lg:block">
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
+        </div>
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
+          <SH
+            l="Performance"
+            t="Runs on a single $5 server"
+            s="Backend + Postgres + your Next.js dashboard. All on one box."
+          />
+
+          {/* Hero stat cards */}
+          <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Stat value="1B+" label="events / month" sub="theoretical max throughput" />
+            <Stat value="30M" label="events on 40 GB" sub="before the disk fills up" />
+            <Stat value="< 1.7 GB" label="RAM in use" sub="backend + dashboard + Postgres" />
+          </div>
+
+          {/* Scale table */}
+          <div className="mx-auto mt-10 max-w-[760px]">
+            <p className="mb-4 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/50">
+              Pick a server by app stage
+            </p>
+            <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015]">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-white/[0.05]">
+                    <th className="px-5 py-3 text-left font-medium text-muted-foreground/50">App stage</th>
+                    <th className="px-5 py-3 text-left font-medium text-muted-foreground/50">Hetzner box</th>
+                    <th className="px-5 py-3 text-right font-medium text-muted-foreground/50">Cost / mo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.03]">
+                  <tr className="bg-primary/[0.03]">
+                    <td className="px-5 py-3 font-medium">MVP &mdash; first 1K users</td>
+                    <td className="px-5 py-3 text-muted-foreground/70">CX22 &middot; 2 vCPU &middot; 4 GB &middot; 40 GB</td>
+                    <td className="px-5 py-3 text-right font-bold text-primary">€4.75</td>
+                  </tr>
+                  <tr>
+                    <td className="px-5 py-3 font-medium">10K&ndash;50K MAU</td>
+                    <td className="px-5 py-3 text-muted-foreground/70">CX32 &middot; 4 vCPU &middot; 8 GB &middot; 80 GB</td>
+                    <td className="px-5 py-3 text-right text-muted-foreground/70">~€7</td>
+                  </tr>
+                  <tr>
+                    <td className="px-5 py-3 font-medium">50K&ndash;200K MAU</td>
+                    <td className="px-5 py-3 text-muted-foreground/70">CX42 &middot; 8 vCPU &middot; 16 GB &middot; 160 GB</td>
+                    <td className="px-5 py-3 text-right text-muted-foreground/70">~€15</td>
+                  </tr>
+                  <tr>
+                    <td className="px-5 py-3 font-medium">200K+ MAU</td>
+                    <td className="px-5 py-3 text-muted-foreground/70">Dedicated DB box, private network</td>
+                    <td className="px-5 py-3 text-right text-muted-foreground/70">~€30+</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p className="mt-6 text-center text-[12px] text-muted-foreground/50">
+            Full capacity math + monitoring playbook in the{" "}
+            <Link href="/docs#capacity" className="text-primary/80 underline-offset-4 hover:underline">
+              capacity docs
+            </Link>
+            .
+          </p>
+        </div>
+      </section>
+
       {/* Quote */}
       <section className="relative border-t border-white/[0.04]">
         <div className="pointer-events-none absolute inset-y-0 left-4 right-4 mx-auto max-w-[1120px] hidden lg:block">
@@ -325,6 +395,16 @@ function PI({ t }: { t: string }) { return <li className="flex items-start gap-3
 function SI({ t }: { t: string }) { return <li className="flex items-start gap-3 text-[13px]"><Check className="mt-0.5 h-4 w-4 text-primary/80 shrink-0" /><span className="text-muted-foreground/80">{t}</span></li>; }
 function CR({ f, r, m, a, p, g }: { f: string; r: boolean; m: boolean; a: boolean; p: boolean | "self"; g: boolean }) { return <tr className="transition-colors hover:bg-white/[0.015]"><td className="px-5 py-3 font-medium">{f}</td><td className="px-5 py-3 text-center"><CI v={r} hl /></td><td className="px-5 py-3 text-center"><CI v={m} /></td><td className="px-5 py-3 text-center"><CI v={a} /></td><td className="px-5 py-3 text-center"><CI v={p} /></td><td className="px-5 py-3 text-center hidden lg:table-cell"><CI v={g} /></td></tr>; }
 function CI({ v, hl }: { v: boolean | "self"; hl?: boolean }) { if (v === "self") return <span className="text-[10px] text-muted-foreground/30">self-host</span>; if (v) return <Check className={`h-3.5 w-3.5 mx-auto ${hl ? "text-primary" : "text-muted-foreground/30"}`} />; return <X className="h-3.5 w-3.5 mx-auto text-muted-foreground/10" />; }
+
+function Stat({ value, label, sub }: { value: string; label: string; sub: string }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 text-center transition-colors hover:border-primary/20 hover:bg-primary/[0.02]">
+      <p className="text-[40px] font-bold tracking-tight leading-none text-primary sm:text-[44px]">{value}</p>
+      <p className="mt-3 text-[14px] font-semibold">{label}</p>
+      <p className="mt-1 text-[12px] text-muted-foreground/50">{sub}</p>
+    </div>
+  );
+}
 
 function FAQ({ q, a }: { q: string; a: string }) {
   return (
