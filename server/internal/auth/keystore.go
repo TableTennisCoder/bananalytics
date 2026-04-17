@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/storage"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/storage"
 )
 
 // KeyInfo holds cached key lookup results.
@@ -41,8 +41,10 @@ func NewKeystore(projects storage.ProjectRepository) *Keystore {
 }
 
 // Lookup resolves an API key to its project and key type.
+// Uses prefix-based DB lookup + SHA-256 hash verification (constant-time).
 // Results are cached for 5 minutes to avoid hitting the DB on every request.
 func (ks *Keystore) Lookup(ctx context.Context, key string) (*KeyInfo, error) {
+	// Check cache first
 	ks.mu.RLock()
 	if cached, ok := ks.cache[key]; ok && time.Now().Before(cached.expiresAt) {
 		ks.mu.RUnlock()
@@ -50,21 +52,35 @@ func (ks *Keystore) Lookup(ctx context.Context, key string) (*KeyInfo, error) {
 	}
 	ks.mu.RUnlock()
 
-	// Try write key first
-	project, err := ks.projects.FindByWriteKey(ctx, key)
+	prefix := KeyPrefix(key)
+	keyHash := HashKey(key)
+
+	// Try write key: lookup by prefix, verify by hash
+	candidates, err := ks.projects.FindByWriteKeyPrefix(ctx, prefix)
 	if err == nil {
-		info := &KeyInfo{Project: project, KeyType: domain.KeyTypeWrite}
-		ks.store(key, info)
-		return info, nil
+		for _, c := range candidates {
+			if VerifyKey(key, c.KeyHash) {
+				info := &KeyInfo{Project: &c.Project, KeyType: domain.KeyTypeWrite}
+				ks.store(key, info)
+				return info, nil
+			}
+		}
 	}
 
-	// Try secret key
-	project, err = ks.projects.FindBySecretKey(ctx, key)
+	// Try secret key: lookup by prefix, verify by hash
+	candidates, err = ks.projects.FindBySecretKeyPrefix(ctx, prefix)
 	if err == nil {
-		info := &KeyInfo{Project: project, KeyType: domain.KeyTypeSecret}
-		ks.store(key, info)
-		return info, nil
+		for _, c := range candidates {
+			if VerifyKey(key, c.KeyHash) {
+				info := &KeyInfo{Project: &c.Project, KeyType: domain.KeyTypeSecret}
+				ks.store(key, info)
+				return info, nil
+			}
+		}
 	}
+
+	// Key not found — avoid leaking timing info by computing hash anyway
+	_ = keyHash
 
 	return nil, &domain.ErrUnauthorized{Reason: "invalid API key"}
 }

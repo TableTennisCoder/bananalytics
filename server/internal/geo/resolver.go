@@ -7,7 +7,7 @@ import (
 
 	"github.com/oschwald/maxminddb-golang"
 
-	"github.com/rochade-analytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/domain"
 )
 
 // Resolver looks up geographic location from IP addresses.
@@ -35,7 +35,7 @@ type maxmindRecord struct {
 // Returns nil (no-op resolver) if the file path is empty or cannot be opened.
 func NewResolver(dbPath string, logger *slog.Logger) *Resolver {
 	if dbPath == "" {
-		logger.Info("GeoIP disabled — no ROCHADE_GEOIP_DB path configured")
+		logger.Info("GeoIP disabled — no BANANA_GEOIP_DB path configured")
 		return nil
 	}
 

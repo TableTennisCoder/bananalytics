@@ -1,4 +1,4 @@
-import { RochadeClient } from '../../src/core/client';
+import { BananalyticsClient } from '../../src/core/client';
 import { AsyncStorageInterface } from '../../src/transport/persister';
 
 function createMockStorage(): AsyncStorageInterface {
@@ -28,13 +28,13 @@ global.fetch = jest.fn().mockResolvedValue({
   json: async () => ({ success: true, accepted: 1 }),
 });
 
-describe('RochadeClient', () => {
-  let client: RochadeClient;
+describe('BananalyticsClient', () => {
+  let client: BananalyticsClient;
   let storage: AsyncStorageInterface;
 
   beforeEach(() => {
     storage = createMockStorage();
-    client = new RochadeClient(
+    client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://analytics.example.com' },
       storage,
     );
@@ -93,13 +93,13 @@ describe('RochadeClient', () => {
 
   it('throws ConfigError for missing apiKey', () => {
     expect(() => {
-      new RochadeClient({ apiKey: '', endpoint: 'https://test.com' }, storage);
+      new BananalyticsClient({ apiKey: '', endpoint: 'https://test.com' }, storage);
     }).toThrow('apiKey is required');
   });
 
   it('throws ConfigError for missing endpoint', () => {
     expect(() => {
-      new RochadeClient({ apiKey: 'rk_test', endpoint: '' }, storage);
+      new BananalyticsClient({ apiKey: 'rk_test', endpoint: '' }, storage);
     }).toThrow('endpoint is required');
   });
 });

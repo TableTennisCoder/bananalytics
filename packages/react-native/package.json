@@ -1,5 +1,5 @@
 {
-  "name": "@rochade/react-native",
+  "name": "@bananalytics/react-native",
   "version": "0.1.0",
   "description": "Self-hosted analytics SDK for React Native",
   "main": "dist/index.js",
@@ -32,6 +32,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rochade-analytics/rochade"
+    "url": "https://github.com/bananalytics/bananalytics"
   }
 }

@@ -1,56 +1,56 @@
 // Public API exports
-export { RochadeClient } from './core/client';
-export { RochadeProvider } from './hooks/RochadeProvider';
-export { useRochade } from './hooks/useRochade';
+export { BananalyticsClient } from './core/client';
+export { BananalyticsProvider } from './hooks/BananalyticsProvider';
+export { useBananalytics } from './hooks/useBananalytics';
 export { useTrackScreen } from './hooks/useTrackScreen';
 
 // Types
-export type { RochadeConfig } from './types/config';
+export type { BananalyticsConfig } from './types/config';
 export type { EventPayload, EventType, EventContext } from './types/events';
 export type { Properties } from './types/common';
 
 // Errors
-export { RochadeError, NetworkError, ConfigError, ValidationError } from './core/errors';
+export { BananalyticsError, NetworkError, ConfigError, ValidationError } from './core/errors';
 
 // Static singleton for non-React usage
-import { RochadeConfig } from './types/config';
+import { BananalyticsConfig } from './types/config';
 import { Properties } from './types/common';
-import { RochadeClient } from './core/client';
+import { BananalyticsClient } from './core/client';
 import { AsyncStorageInterface } from './transport/persister';
 
-let instance: RochadeClient | null = null;
+let instance: BananalyticsClient | null = null;
 
 /**
- * Static facade for the Rochade SDK.
+ * Static facade for the BananalyticsSDK.
  * Provides a singleton interface for imperative usage outside React components.
  *
  * @example
  * ```ts
- * import { Rochade } from '@rochade/react-native';
+ * import { Bananalytics} from '@bananalytics/react-native';
  *
- * Rochade.init({ apiKey: 'rk_...', endpoint: 'https://...' });
- * Rochade.track('button_clicked', { button: 'signup' });
+ * Bananalytics.init({ apiKey: 'rk_...', endpoint: 'https://...' });
+ * Bananalytics.track('button_clicked', { button: 'signup' });
  * ```
  */
-export const Rochade = {
+export const Bananalytics = {
   /**
    * Initializes the SDK with the given configuration.
    *
    * @param config - SDK configuration
    * @param asyncStorage - AsyncStorage implementation (optional, auto-detected)
    */
-  init(config: RochadeConfig, asyncStorage?: AsyncStorageInterface): void {
+  init(config: BananalyticsConfig, asyncStorage?: AsyncStorageInterface): void {
     try {
       const storage =
         asyncStorage ??
         // eslint-disable-next-line @typescript-eslint/no-var-requires -- Auto-detect AsyncStorage
         require('@react-native-async-storage/async-storage').default;
-      instance = new RochadeClient(config, storage);
+      instance = new BananalyticsClient(config, storage);
       instance.initialize().catch((err) => {
-        console.error('[Rochade] Initialization failed:', err);
+        console.error('[Bananalytics] Initialization failed:', err);
       });
     } catch (err) {
-      console.error('[Rochade] Failed to create client:', err);
+      console.error('[Bananalytics] Failed to create client:', err);
     }
   },
 

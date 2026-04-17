@@ -1,11 +1,11 @@
 import { EventPayload } from '../types/events';
 import { Logger } from '../utils/logger';
 
-const QUEUE_STORAGE_KEY = '@rochade/queue';
-const ANONYMOUS_ID_KEY = '@rochade/anonymous_id';
-const USER_ID_KEY = '@rochade/user_id';
-const OPT_OUT_KEY = '@rochade/opt_out';
-const SESSION_KEY = '@rochade/session';
+const QUEUE_STORAGE_KEY = '@bananalytics/queue';
+const ANONYMOUS_ID_KEY = '@bananalytics/anonymous_id';
+const USER_ID_KEY = '@bananalytics/user_id';
+const OPT_OUT_KEY = '@bananalytics/opt_out';
+const SESSION_KEY = '@bananalytics/session';
 
 /** AsyncStorage interface — matches @react-native-async-storage/async-storage. */
 export interface AsyncStorageInterface {

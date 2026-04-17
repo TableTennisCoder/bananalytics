@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useRochade } from './useRochade';
+import { useBananalytics } from './useBananalytics';
 
 /**
  * React hook that tracks a screen view when the component mounts.
@@ -15,7 +15,7 @@ import { useRochade } from './useRochade';
  * ```
  */
 export function useTrackScreen(screenName: string): void {
-  const client = useRochade();
+  const client = useBananalytics();
 
   useEffect(() => {
     client.screen(screenName);

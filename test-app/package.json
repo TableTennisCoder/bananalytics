@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@rochade/react-native": "file:../packages/react-native",
+    "@bananalytics/react-native": "file:../packages/react-native",
     "expo": "~54.0.33",
     "expo-crypto": "~15.0.8",
     "expo-dev-client": "~6.0.20",

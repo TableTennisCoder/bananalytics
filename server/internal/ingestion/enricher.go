@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/geo"
-	"github.com/rochade-analytics/server/pkg/clock"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/geo"
+	"github.com/bananalytics/server/pkg/clock"
 )
 
 // Enricher adds server-side data to events.

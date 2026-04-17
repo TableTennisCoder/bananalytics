@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rochade-analytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/domain"
 )
 
 func makeValidEvent(id string) domain.Event {

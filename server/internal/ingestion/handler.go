@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/rochade-analytics/server/internal/auth"
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/storage"
+	"github.com/bananalytics/server/internal/auth"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/storage"
 )
 
 // Handler handles the POST /v1/ingest endpoint.

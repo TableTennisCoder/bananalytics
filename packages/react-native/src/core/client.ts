@@ -1,4 +1,4 @@
-import { RochadeConfig } from '../types/config';
+import { BananalyticsConfig } from '../types/config';
 import { EventContext, EventPayload } from '../types/events';
 import { Properties } from '../types/common';
 import { resolveConfig, ResolvedConfig } from './config';
@@ -17,10 +17,10 @@ import { getDeviceContext } from '../context/device';
 import { getAppContext } from '../context/app';
 
 /**
- * Main Rochade analytics client.
+ * Main Bananalytics analytics client.
  * Orchestrates all SDK components: tracking, transport, sessions, and privacy.
  */
-export class RochadeClient {
+export class BananalyticsClient {
   private config: ResolvedConfig;
   private logger: Logger;
   private queue: EventQueue;
@@ -37,7 +37,7 @@ export class RochadeClient {
   private deviceContext = getDeviceContext();
   private appContext = getAppContext();
 
-  constructor(config: RochadeConfig, asyncStorage: AsyncStorageInterface) {
+  constructor(config: BananalyticsConfig, asyncStorage: AsyncStorageInterface) {
     this.config = resolveConfig(config);
     this.logger = new Logger(this.config.debug);
     this.persister = new Persister(asyncStorage, this.logger);
@@ -75,7 +75,7 @@ export class RochadeClient {
    *
    * @example
    * ```ts
-   * const client = new RochadeClient(config, AsyncStorage);
+   * const client = new BananalyticsClient(config, AsyncStorage);
    * await client.initialize();
    * ```
    */
@@ -126,9 +126,9 @@ export class RochadeClient {
 
       this.batcher.start();
       this.initialized = true;
-      this.logger.debug('Rochade SDK initialized');
+      this.logger.debug('Bananalytics SDK initialized');
     } catch (err) {
-      this.logger.error('Failed to initialize Rochade SDK', err);
+      this.logger.error('Failed to initialize Bananalytics SDK', err);
     }
   }
 

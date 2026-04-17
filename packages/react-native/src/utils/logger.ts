@@ -9,17 +9,17 @@ export class Logger {
   /** Log a debug message. Only outputs when debug mode is enabled. */
   debug(message: string, ...args: unknown[]): void {
     if (this.enabled) {
-      console.log(`[Rochade] ${message}`, ...args);
+      console.log(`[Bananalytics] ${message}`, ...args);
     }
   }
 
   /** Log a warning. Always outputs regardless of debug mode. */
   warn(message: string, ...args: unknown[]): void {
-    console.warn(`[Rochade] ${message}`, ...args);
+    console.warn(`[Bananalytics] ${message}`, ...args);
   }
 
   /** Log an error. Always outputs regardless of debug mode. */
   error(message: string, ...args: unknown[]): void {
-    console.error(`[Rochade] ${message}`, ...args);
+    console.error(`[Bananalytics] ${message}`, ...args);
   }
 }

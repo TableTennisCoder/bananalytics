@@ -1,7 +1,7 @@
 /**
- * Configuration for the Rochade analytics SDK.
+ * Configuration for the Bananalytics analytics SDK.
  */
-export interface RochadeConfig {
+export interface BananalyticsConfig {
   /** Write-only public API key. */
   apiKey: string;
 

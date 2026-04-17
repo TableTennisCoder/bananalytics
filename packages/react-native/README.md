@@ -1,11 +1,11 @@
-# @rochade/react-native
+# @bananalytics/react-native
 
 Self-hosted analytics SDK for React Native apps. Track events, identify users, and auto-capture lifecycle data.
 
 ## Installation
 
 ```bash
-npm install @rochade/react-native uuid
+npm install @bananalytics/react-native uuid
 npm install @react-native-async-storage/async-storage
 ```
 
@@ -14,37 +14,37 @@ npm install @react-native-async-storage/async-storage
 ### Imperative API
 
 ```typescript
-import { Rochade } from '@rochade/react-native';
+import { Bananalytics } from '@bananalytics/react-native';
 
-Rochade.init({
+Bananalytics.init({
   apiKey: 'rk_your_write_key',
   endpoint: 'https://your-server.com',
 });
 
-Rochade.track('button_clicked', { button: 'signup' });
-Rochade.identify('user-123', { plan: 'pro' });
-Rochade.screen('HomeScreen');
+Bananalytics.track('button_clicked', { button: 'signup' });
+Bananalytics.identify('user-123', { plan: 'pro' });
+Bananalytics.screen('HomeScreen');
 ```
 
 ### React Provider
 
 ```tsx
-import { RochadeProvider, useRochade, useTrackScreen } from '@rochade/react-native';
+import { BananalyticsProvider, useBananalytics, useTrackScreen } from '@bananalytics/react-native';
 
 function App() {
   return (
-    <RochadeProvider config={{ apiKey: 'rk_...', endpoint: 'https://...' }}>
+    <BananalyticsProvider config={{ apiKey: 'rk_...', endpoint: 'https://...' }}>
       <HomeScreen />
-    </RochadeProvider>
+    </BananalyticsProvider>
   );
 }
 
 function HomeScreen() {
   useTrackScreen('HomeScreen');
-  const rochade = useRochade();
+  const bananalytics = useBananalytics();
 
   return (
-    <Button onPress={() => rochade.track('button_clicked')} title="Click me" />
+    <Button onPress={() => bananalytics.track('button_clicked')} title="Click me" />
   );
 }
 ```
@@ -52,7 +52,7 @@ function HomeScreen() {
 ## Configuration
 
 ```typescript
-interface RochadeConfig {
+interface BananalyticsConfig {
   apiKey: string;           // Write-only public key (required)
   endpoint: string;         // Ingestion API URL (required)
   flushInterval?: number;   // ms between auto-flushes (default: 30000)
@@ -70,14 +70,14 @@ interface RochadeConfig {
 
 | Method | Description |
 |---|---|
-| `Rochade.init(config)` | Initialize the SDK |
-| `Rochade.track(event, properties?)` | Track a custom event |
-| `Rochade.screen(name, properties?)` | Track a screen view |
-| `Rochade.identify(userId, traits?)` | Identify the current user |
-| `Rochade.reset()` | Clear identity and generate new anonymous ID |
-| `Rochade.optIn()` | Resume tracking |
-| `Rochade.optOut()` | Stop all tracking |
-| `Rochade.flush()` | Manually flush queued events |
+| `Bananalytics.init(config)` | Initialize the SDK |
+| `Bananalytics.track(event, properties?)` | Track a custom event |
+| `Bananalytics.screen(name, properties?)` | Track a screen view |
+| `Bananalytics.identify(userId, traits?)` | Identify the current user |
+| `Bananalytics.reset()` | Clear identity and generate new anonymous ID |
+| `Bananalytics.optIn()` | Resume tracking |
+| `Bananalytics.optOut()` | Stop all tracking |
+| `Bananalytics.flush()` | Manually flush queued events |
 
 ## Features
 

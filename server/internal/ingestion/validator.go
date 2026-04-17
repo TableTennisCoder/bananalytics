@@ -3,7 +3,7 @@ package ingestion
 import (
 	"fmt"
 
-	"github.com/rochade-analytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/domain"
 )
 
 // ValidateBatch validates a batch of events and separates valid from invalid.

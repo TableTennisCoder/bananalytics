@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/rochade-analytics/server/internal/storage"
+	"github.com/bananalytics/server/internal/storage"
 )
 
 // Service encapsulates analytics query logic.

@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/storage"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/storage"
 )
 
 type mockProjectRepo struct {
@@ -32,6 +32,32 @@ func (m *mockProjectRepo) FindBySecretKey(_ context.Context, key string) (*domai
 	return nil, &domain.ErrNotFound{Resource: "project", ID: key}
 }
 
+func (m *mockProjectRepo) FindByWriteKeyPrefix(_ context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	var results []storage.ProjectWithHash
+	for k, p := range m.projects {
+		if len(k) > 2 && k[:2] == "w:" && len(k) > 10 && k[2:10] == prefix {
+			results = append(results, storage.ProjectWithHash{Project: *p, KeyHash: HashKey(k[2:])})
+		}
+	}
+	if len(results) == 0 {
+		return nil, &domain.ErrNotFound{Resource: "project", ID: prefix}
+	}
+	return results, nil
+}
+
+func (m *mockProjectRepo) FindBySecretKeyPrefix(_ context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	var results []storage.ProjectWithHash
+	for k, p := range m.projects {
+		if len(k) > 2 && k[:2] == "s:" && len(k) > 10 && k[2:10] == prefix {
+			results = append(results, storage.ProjectWithHash{Project: *p, KeyHash: HashKey(k[2:])})
+		}
+	}
+	if len(results) == 0 {
+		return nil, &domain.ErrNotFound{Resource: "project", ID: prefix}
+	}
+	return results, nil
+}
+
 func (m *mockProjectRepo) FindByID(_ context.Context, id string) (*domain.Project, error) {
 	return nil, &domain.ErrNotFound{Resource: "project", ID: id}
 }
@@ -43,9 +69,9 @@ func (m *mockProjectRepo) RotateKeys(_ context.Context, _ string, _, _ string) e
 var _ storage.ProjectRepository = (*mockProjectRepo)(nil)
 
 func TestMiddleware_ValidWriteKey(t *testing.T) {
-	project := &domain.Project{ID: "p1", WriteKey: "rk_test"}
+	project := &domain.Project{ID: "p1", WriteKey: "rk_testkey123"}
 	repo := &mockProjectRepo{
-		projects: map[string]*domain.Project{"w:rk_test": project},
+		projects: map[string]*domain.Project{"w:rk_testkey123": project},
 	}
 	ks := NewKeystore(repo)
 
@@ -60,7 +86,7 @@ func TestMiddleware_ValidWriteKey(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer rk_test")
+	req.Header.Set("Authorization", "Bearer rk_testkey123")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -108,9 +134,9 @@ func TestMiddleware_InvalidKey(t *testing.T) {
 }
 
 func TestRequireKeyType_WriteKey(t *testing.T) {
-	project := &domain.Project{ID: "p1", WriteKey: "rk_test"}
+	project := &domain.Project{ID: "p1", WriteKey: "rk_testkey123"}
 	repo := &mockProjectRepo{
-		projects: map[string]*domain.Project{"w:rk_test": project},
+		projects: map[string]*domain.Project{"w:rk_testkey123": project},
 	}
 	ks := NewKeystore(repo)
 
@@ -121,7 +147,7 @@ func TestRequireKeyType_WriteKey(t *testing.T) {
 	})))
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer rk_test")
+	req.Header.Set("Authorization", "Bearer rk_testkey123")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -131,9 +157,9 @@ func TestRequireKeyType_WriteKey(t *testing.T) {
 }
 
 func TestRequireKeyType_WrongType(t *testing.T) {
-	project := &domain.Project{ID: "p1", WriteKey: "rk_test"}
+	project := &domain.Project{ID: "p1", WriteKey: "rk_testkey123"}
 	repo := &mockProjectRepo{
-		projects: map[string]*domain.Project{"w:rk_test": project},
+		projects: map[string]*domain.Project{"w:rk_testkey123": project},
 	}
 	ks := NewKeystore(repo)
 
@@ -142,7 +168,7 @@ func TestRequireKeyType_WrongType(t *testing.T) {
 	})))
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer rk_test")
+	req.Header.Set("Authorization", "Bearer rk_testkey123")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 

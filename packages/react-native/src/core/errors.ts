@@ -1,13 +1,13 @@
-/** Base error class for all Rochade SDK errors. */
-export class RochadeError extends Error {
+/** Base error class for all Bananalytics SDK errors. */
+export class BananalyticsError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'RochadeError';
+    this.name = 'BananalyticsError';
   }
 }
 
 /** Error thrown when a network request fails. */
-export class NetworkError extends RochadeError {
+export class NetworkError extends BananalyticsError {
   public readonly statusCode: number | undefined;
 
   constructor(message: string, statusCode?: number) {
@@ -23,7 +23,7 @@ export class NetworkError extends RochadeError {
 }
 
 /** Error thrown for invalid configuration. */
-export class ConfigError extends RochadeError {
+export class ConfigError extends BananalyticsError {
   constructor(message: string) {
     super(message);
     this.name = 'ConfigError';
@@ -31,7 +31,7 @@ export class ConfigError extends RochadeError {
 }
 
 /** Error thrown for validation failures. */
-export class ValidationError extends RochadeError {
+export class ValidationError extends BananalyticsError {
   constructor(message: string) {
     super(message);
     this.name = 'ValidationError';

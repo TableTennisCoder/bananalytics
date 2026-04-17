@@ -1,4 +1,4 @@
-import { RochadeConfig } from '../types/config';
+import { BananalyticsConfig } from '../types/config';
 import { ConfigError } from './errors';
 
 const DEFAULT_FLUSH_INTERVAL = 30000;
@@ -33,7 +33,7 @@ export interface ResolvedConfig {
  * const resolved = resolveConfig({ apiKey: 'rk_...', endpoint: 'https://...' });
  * ```
  */
-export function resolveConfig(config: RochadeConfig): ResolvedConfig {
+export function resolveConfig(config: BananalyticsConfig): ResolvedConfig {
   if (!config.apiKey) {
     throw new ConfigError('apiKey is required');
   }

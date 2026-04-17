@@ -3,6 +3,8 @@ package ingestion
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,10 +13,10 @@ import (
 
 	"log/slog"
 
-	"github.com/rochade-analytics/server/internal/auth"
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/storage"
-	"github.com/rochade-analytics/server/pkg/clock"
+	"github.com/bananalytics/server/internal/auth"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/storage"
+	"github.com/bananalytics/server/pkg/clock"
 )
 
 type mockEventRepo struct {
@@ -76,6 +78,16 @@ func (m *mockProjectRepo) FindByWriteKey(_ context.Context, key string) (*domain
 func (m *mockProjectRepo) FindBySecretKey(_ context.Context, _ string) (*domain.Project, error) {
 	return nil, &domain.ErrNotFound{Resource: "project", ID: ""}
 }
+func (m *mockProjectRepo) FindByWriteKeyPrefix(_ context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	if m.project != nil && len(m.project.WriteKey) >= 8 && m.project.WriteKey[:8] == prefix {
+		h := sha256.Sum256([]byte(m.project.WriteKey))
+		return []storage.ProjectWithHash{{Project: *m.project, KeyHash: hex.EncodeToString(h[:])}}, nil
+	}
+	return nil, &domain.ErrNotFound{Resource: "project", ID: prefix}
+}
+func (m *mockProjectRepo) FindBySecretKeyPrefix(_ context.Context, _ string) ([]storage.ProjectWithHash, error) {
+	return nil, &domain.ErrNotFound{Resource: "project", ID: ""}
+}
 func (m *mockProjectRepo) FindByID(_ context.Context, _ string) (*domain.Project, error) {
 	return nil, &domain.ErrNotFound{Resource: "project", ID: ""}
 }
@@ -89,7 +101,7 @@ func makeAuthenticatedRequest(t *testing.T, body any) *http.Request {
 	}
 	req := httptest.NewRequest("POST", "/v1/ingest", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer rk_test")
+	req.Header.Set("Authorization", "Bearer rk_testkey123")
 	return req
 }
 
@@ -111,7 +123,7 @@ func setupHandler(t *testing.T, repo *mockEventRepo) (http.Handler, *mockEventRe
 		repo = &mockEventRepo{}
 	}
 
-	project := &domain.Project{ID: "proj-123", Name: "Test", WriteKey: "rk_test"}
+	project := &domain.Project{ID: "proj-123", Name: "Test", WriteKey: "rk_testkey123"}
 	projectRepo := &mockProjectRepo{project: project}
 	ks := auth.NewKeystore(projectRepo)
 
@@ -157,7 +169,7 @@ func TestHandleIngest_InvalidJSON(t *testing.T) {
 	handler, _ := setupHandler(t, nil)
 
 	req := httptest.NewRequest("POST", "/v1/ingest", bytes.NewReader([]byte(`{invalid`)))
-	req.Header.Set("Authorization", "Bearer rk_test")
+	req.Header.Set("Authorization", "Bearer rk_testkey123")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 

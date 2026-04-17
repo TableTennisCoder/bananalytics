@@ -1,5 +1,5 @@
 -- Seed script: generates realistic mock analytics data for the dashboard
--- Usage: docker exec -i server-postgres-1 psql -U rochade -d rochade < scripts/seed.sql
+-- Usage: docker exec -i server-postgres-1 psql -U bananalytics -d bananalytics < scripts/seed.sql
 
 -- Get the project ID (uses the first project)
 DO $$

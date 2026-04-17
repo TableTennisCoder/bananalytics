@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/rochade-analytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/domain"
 )
 
 // EventRepository defines operations for event persistence.
@@ -51,17 +51,52 @@ type ProjectRepository interface {
 	// Create creates a new project.
 	Create(ctx context.Context, project *domain.Project) error
 
-	// FindByWriteKey looks up a project by its write key.
+	// FindByWriteKey looks up a project by its write key (plaintext — legacy).
 	FindByWriteKey(ctx context.Context, writeKey string) (*domain.Project, error)
 
-	// FindBySecretKey looks up a project by its secret key.
+	// FindBySecretKey looks up a project by its secret key (plaintext — legacy).
 	FindBySecretKey(ctx context.Context, secretKey string) (*domain.Project, error)
+
+	// FindByWriteKeyPrefix looks up projects matching the key prefix, returns hash for verification.
+	FindByWriteKeyPrefix(ctx context.Context, prefix string) ([]ProjectWithHash, error)
+
+	// FindBySecretKeyPrefix looks up projects matching the key prefix, returns hash for verification.
+	FindBySecretKeyPrefix(ctx context.Context, prefix string) ([]ProjectWithHash, error)
 
 	// FindByID looks up a project by its ID.
 	FindByID(ctx context.Context, id string) (*domain.Project, error)
 
 	// RotateKeys regenerates the write and secret keys for a project.
 	RotateKeys(ctx context.Context, id string, newWriteKey, newSecretKey string) error
+}
+
+// ProjectWithHash is a project with its key hash for verification.
+type ProjectWithHash struct {
+	Project domain.Project
+	KeyHash string
+}
+
+// UserRepository defines operations for user persistence.
+type UserRepository interface {
+	Create(ctx context.Context, user *domain.User) error
+	FindByID(ctx context.Context, id string) (*domain.User, error)
+	FindByEmail(ctx context.Context, email string) (*domain.User, error)
+	Count(ctx context.Context) (int, error)
+}
+
+// SessionRepository defines operations for user session persistence.
+type SessionRepository interface {
+	Create(ctx context.Context, session *domain.Session) error
+	FindByTokenHash(ctx context.Context, tokenHash string) (*domain.Session, error)
+	DeleteByTokenHash(ctx context.Context, tokenHash string) error
+	DeleteExpired(ctx context.Context) (int, error)
+}
+
+// ProjectMemberRepository links users to projects.
+type ProjectMemberRepository interface {
+	AddMember(ctx context.Context, userID, projectID, role string) error
+	ListUserProjects(ctx context.Context, userID string) ([]domain.Project, error)
+	IsMember(ctx context.Context, userID, projectID string) (bool, string, error) // returns isMember, role, error
 }
 
 // EventFilter defines parameters for querying events.

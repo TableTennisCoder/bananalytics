@@ -1,12 +1,12 @@
 # Development override: exposes Go server directly, no Caddy/HTTPS
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 services:
-  rochade:
+  bananalytics:
     ports:
       - "8080:8080"
     environment:
-      ROCHADE_LOG_LEVEL: "debug"
-      ROCHADE_CORS_ORIGINS: "*"
+      BANANA_LOG_LEVEL: "debug"
+      BANANA_CORS_ORIGINS: "*"
 
   caddy:
     profiles: ["disabled"]

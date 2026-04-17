@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -11,14 +13,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rochade-analytics/server/internal/auth"
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/ingestion"
-	"github.com/rochade-analytics/server/internal/query"
-	"github.com/rochade-analytics/server/internal/ratelimit"
-	"github.com/rochade-analytics/server/internal/storage"
-	"github.com/rochade-analytics/server/pkg/clock"
+	"github.com/bananalytics/server/internal/auth"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/ingestion"
+	"github.com/bananalytics/server/internal/query"
+	"github.com/bananalytics/server/internal/ratelimit"
+	"github.com/bananalytics/server/internal/storage"
+	"github.com/bananalytics/server/internal/userauth"
+	"github.com/bananalytics/server/pkg/clock"
 )
+
+func hashKeyForTest(key string) string {
+	h := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(h[:])
+}
 
 // --- Mock Repositories ---
 
@@ -112,6 +120,26 @@ func (m *mockProjectRepo) FindBySecretKey(_ context.Context, key string) (*domai
 	return nil, &domain.ErrNotFound{Resource: "project", ID: key}
 }
 
+func (m *mockProjectRepo) FindByWriteKeyPrefix(_ context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	var results []storage.ProjectWithHash
+	for _, p := range m.projects {
+		if len(p.WriteKey) >= 8 && p.WriteKey[:8] == prefix {
+			results = append(results, storage.ProjectWithHash{Project: *p, KeyHash: hashKeyForTest(p.WriteKey)})
+		}
+	}
+	return results, nil
+}
+
+func (m *mockProjectRepo) FindBySecretKeyPrefix(_ context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	var results []storage.ProjectWithHash
+	for _, p := range m.projects {
+		if len(p.SecretKey) >= 8 && p.SecretKey[:8] == prefix {
+			results = append(results, storage.ProjectWithHash{Project: *p, KeyHash: hashKeyForTest(p.SecretKey)})
+		}
+	}
+	return results, nil
+}
+
 func (m *mockProjectRepo) FindByID(_ context.Context, id string) (*domain.Project, error) {
 	for _, p := range m.projects {
 		if p.ID == id {
@@ -132,12 +160,91 @@ func (m *mockProjectRepo) RotateKeys(_ context.Context, id string, newWrite, new
 	return &domain.ErrNotFound{Resource: "project", ID: id}
 }
 
+// --- User auth mocks ---
+
+type mockUserRepo struct {
+	users map[string]*domain.User // keyed by ID
+}
+
+func newMockUserRepo() *mockUserRepo { return &mockUserRepo{users: map[string]*domain.User{}} }
+
+func (m *mockUserRepo) Create(_ context.Context, u *domain.User) error {
+	m.users[u.ID] = u
+	return nil
+}
+func (m *mockUserRepo) FindByID(_ context.Context, id string) (*domain.User, error) {
+	if u, ok := m.users[id]; ok {
+		return u, nil
+	}
+	return nil, &domain.ErrNotFound{Resource: "user", ID: id}
+}
+func (m *mockUserRepo) FindByEmail(_ context.Context, email string) (*domain.User, error) {
+	for _, u := range m.users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+	return nil, &domain.ErrNotFound{Resource: "user", ID: email}
+}
+func (m *mockUserRepo) Count(_ context.Context) (int, error) { return len(m.users), nil }
+
+type mockSessionRepo struct {
+	sessions map[string]*domain.Session // keyed by token_hash
+}
+
+func newMockSessionRepo() *mockSessionRepo {
+	return &mockSessionRepo{sessions: map[string]*domain.Session{}}
+}
+
+func (m *mockSessionRepo) Create(_ context.Context, s *domain.Session) error {
+	m.sessions[s.TokenHash] = s
+	return nil
+}
+func (m *mockSessionRepo) FindByTokenHash(_ context.Context, h string) (*domain.Session, error) {
+	if s, ok := m.sessions[h]; ok {
+		return s, nil
+	}
+	return nil, &domain.ErrNotFound{Resource: "session", ID: h[:8]}
+}
+func (m *mockSessionRepo) DeleteByTokenHash(_ context.Context, h string) error {
+	delete(m.sessions, h)
+	return nil
+}
+func (m *mockSessionRepo) DeleteExpired(_ context.Context) (int, error) { return 0, nil }
+
+type mockMemberRepo struct {
+	members []domain.ProjectMember
+}
+
+func newMockMemberRepo() *mockMemberRepo { return &mockMemberRepo{} }
+
+func (m *mockMemberRepo) AddMember(_ context.Context, userID, projectID, role string) error {
+	m.members = append(m.members, domain.ProjectMember{
+		UserID: userID, ProjectID: projectID, Role: role, CreatedAt: time.Now(),
+	})
+	return nil
+}
+func (m *mockMemberRepo) ListUserProjects(_ context.Context, userID string) ([]domain.Project, error) {
+	return nil, nil
+}
+func (m *mockMemberRepo) IsMember(_ context.Context, userID, projectID string) (bool, string, error) {
+	for _, mem := range m.members {
+		if mem.UserID == userID && mem.ProjectID == projectID {
+			return true, mem.Role, nil
+		}
+	}
+	return false, "", nil
+}
+
 // --- Test Setup ---
 
 type testServer struct {
 	handler     http.Handler
 	projectRepo *mockProjectRepo
 	eventRepo   *mockEventRepo
+	userRepo    *mockUserRepo
+	sessionRepo *mockSessionRepo
+	memberRepo  *mockMemberRepo
 	project     *domain.Project
 }
 
@@ -145,6 +252,9 @@ func setupTestServer() *testServer {
 	logger := slog.Default()
 	eventRepo := &mockEventRepo{}
 	projectRepo := &mockProjectRepo{}
+	userRepo := newMockUserRepo()
+	sessionRepo := newMockSessionRepo()
+	memberRepo := newMockMemberRepo()
 
 	// Pre-create a test project
 	project := &domain.Project{
@@ -163,6 +273,7 @@ func setupTestServer() *testServer {
 	ingestionHandler := ingestion.NewHandler(eventRepo, enricher, logger)
 	queryService := query.NewService(eventRepo)
 	queryHandler := query.NewHandler(queryService, logger)
+	userAuthHandlers := userauth.NewHandlers(userRepo, sessionRepo, logger, false)
 
 	router := NewRouter(RouterConfig{
 		Logger:      logger,
@@ -171,6 +282,10 @@ func setupTestServer() *testServer {
 		Ingestion:   ingestionHandler,
 		Query:       queryHandler,
 		Projects:    projectRepo,
+		Members:     memberRepo,
+		Users:       userRepo,
+		Sessions:    sessionRepo,
+		UserAuth:    userAuthHandlers,
 		CORSOrigins: "*",
 	})
 
@@ -178,8 +293,37 @@ func setupTestServer() *testServer {
 		handler:     router,
 		projectRepo: projectRepo,
 		eventRepo:   eventRepo,
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
+		memberRepo:  memberRepo,
 		project:     project,
 	}
+}
+
+// authenticateAs creates a test user + session and returns the session cookie value.
+func authenticateAs(t *testing.T, ts *testServer, email string) string {
+	t.Helper()
+	user := &domain.User{
+		ID:           "user-" + email,
+		Email:        email,
+		PasswordHash: "ignored",
+		Name:         "Test User",
+		IsAdmin:      true,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	ts.userRepo.users[user.ID] = user
+
+	token, _ := userauth.GenerateToken()
+	session := &domain.Session{
+		ID:        "sess-" + email,
+		UserID:    user.ID,
+		TokenHash: userauth.HashToken(token),
+		ExpiresAt: time.Now().Add(time.Hour),
+		CreatedAt: time.Now(),
+	}
+	ts.sessionRepo.sessions[session.TokenHash] = session
+	return token
 }
 
 // --- Integration Tests ---
@@ -392,10 +536,12 @@ func TestQueryRetentionEndpoint(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	ts := setupTestServer()
+	token := authenticateAs(t, ts, "test@example.com")
 
 	body := []byte(`{"name":"New Project"}`)
 	req := httptest.NewRequest("POST", "/v1/projects", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: userauth.SessionCookieName, Value: token})
 
 	rec := httptest.NewRecorder()
 	ts.handler.ServeHTTP(rec, req)
@@ -416,12 +562,29 @@ func TestCreateProject(t *testing.T) {
 	}
 }
 
+func TestCreateProjectRequiresAuth(t *testing.T) {
+	ts := setupTestServer()
+
+	body := []byte(`{"name":"New Project"}`)
+	req := httptest.NewRequest("POST", "/v1/projects", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without session, got %d", rec.Code)
+	}
+}
+
 func TestCreateProjectMissingName(t *testing.T) {
 	ts := setupTestServer()
+	token := authenticateAs(t, ts, "test@example.com")
 
 	body := []byte(`{"name":""}`)
 	req := httptest.NewRequest("POST", "/v1/projects", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: userauth.SessionCookieName, Value: token})
 
 	rec := httptest.NewRecorder()
 	ts.handler.ServeHTTP(rec, req)
@@ -466,7 +629,7 @@ func TestRateLimiting(t *testing.T) {
 
 	project := &domain.Project{
 		ID: "rl-project", Name: "RL Test",
-		WriteKey: "rk_rl", SecretKey: "sk_rl",
+		WriteKey: "rk_ratelimit_test", SecretKey: "sk_ratelimit_test",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	projectRepo.projects = append(projectRepo.projects, project)
@@ -488,7 +651,7 @@ func TestRateLimiting(t *testing.T) {
 
 	// First request should succeed
 	req := httptest.NewRequest("POST", "/v1/ingest", bytes.NewReader(validBody))
-	req.Header.Set("Authorization", "Bearer rk_rl")
+	req.Header.Set("Authorization", "Bearer rk_ratelimit_test")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -498,7 +661,7 @@ func TestRateLimiting(t *testing.T) {
 
 	// Second request should be rate limited
 	req = httptest.NewRequest("POST", "/v1/ingest", bytes.NewReader(validBody))
-	req.Header.Set("Authorization", "Bearer rk_rl")
+	req.Header.Set("Authorization", "Bearer rk_ratelimit_test")
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 

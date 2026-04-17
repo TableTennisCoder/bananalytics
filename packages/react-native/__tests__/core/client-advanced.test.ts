@@ -1,4 +1,4 @@
-import { RochadeClient } from '../../src/core/client';
+import { BananalyticsClient } from '../../src/core/client';
 import { AsyncStorageInterface } from '../../src/transport/persister';
 
 function createMockStorage(): AsyncStorageInterface {
@@ -26,7 +26,7 @@ global.fetch = jest.fn().mockResolvedValue({
   json: async () => ({ success: true, accepted: 1 }),
 });
 
-describe('RochadeClient — advanced scenarios', () => {
+describe('BananalyticsClient — advanced scenarios', () => {
   let storage: AsyncStorageInterface;
 
   beforeEach(() => {
@@ -35,7 +35,7 @@ describe('RochadeClient — advanced scenarios', () => {
   });
 
   it('does not track events when opted out', async () => {
-    const client = new RochadeClient(
+    const client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com' },
       storage,
     );
@@ -52,7 +52,7 @@ describe('RochadeClient — advanced scenarios', () => {
   });
 
   it('resumes tracking after opt-in', async () => {
-    const client = new RochadeClient(
+    const client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com' },
       storage,
     );
@@ -72,7 +72,7 @@ describe('RochadeClient — advanced scenarios', () => {
     (global.fetch as jest.Mock).mockRejectedValue(new Error('offline'));
 
     const sharedStorage = createMockStorage();
-    const client1 = new RochadeClient(
+    const client1 = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com', maxRetries: 0 },
       sharedStorage,
     );
@@ -83,14 +83,14 @@ describe('RochadeClient — advanced scenarios', () => {
     await client1.shutdown();
 
     // Queue should be persisted since events were re-queued after flush failure
-    const savedQueue = await sharedStorage.getItem('@rochade/queue');
+    const savedQueue = await sharedStorage.getItem('@bananalytics/queue');
     expect(savedQueue).toBeTruthy();
     const parsed = JSON.parse(savedQueue!);
     expect(parsed.length).toBeGreaterThan(0);
   });
 
   it('handles double initialization gracefully', async () => {
-    const client = new RochadeClient(
+    const client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com' },
       storage,
     );
@@ -103,7 +103,7 @@ describe('RochadeClient — advanced scenarios', () => {
   });
 
   it('reset clears queue and identity', async () => {
-    const client = new RochadeClient(
+    const client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com' },
       storage,
     );
@@ -118,7 +118,7 @@ describe('RochadeClient — advanced scenarios', () => {
   });
 
   it('handles flush when no events queued', async () => {
-    const client = new RochadeClient(
+    const client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com' },
       storage,
     );
@@ -131,7 +131,7 @@ describe('RochadeClient — advanced scenarios', () => {
   it('handles network error on flush gracefully', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('network down'));
 
-    const client = new RochadeClient(
+    const client = new BananalyticsClient(
       { apiKey: 'rk_test', endpoint: 'https://test.com', maxRetries: 0 },
       storage,
     );

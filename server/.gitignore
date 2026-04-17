@@ -8,3 +8,14 @@ bin/
 *.out
 .env
 vendor/
+
+# GeoIP databases — large binary files downloaded via scripts/download-geoip.sh
+# Each operator must download their own with their MaxMind license key.
+geoip/*.mmdb
+
+# MaxMind credentials — contains AccountID + LicenseKey, NEVER commit
+GeoIP.conf
+geoipupdate.conf
+
+# Local dev overrides (port mappings, disabled services, etc.)
+docker-compose.override.yml

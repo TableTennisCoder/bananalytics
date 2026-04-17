@@ -25,7 +25,7 @@ describe('UserIdentity', () => {
 
   it('restores anonymous ID from storage', async () => {
     const storage = createMockStorage();
-    await storage.setItem('@rochade/anonymous_id', 'stored-anon-id');
+    await storage.setItem('@bananalytics/anonymous_id', 'stored-anon-id');
 
     const persister = new Persister(storage, logger);
     const identity = new UserIdentity(persister, logger);
@@ -54,7 +54,7 @@ describe('UserIdentity', () => {
 
   it('restores user ID from storage', async () => {
     const storage = createMockStorage();
-    await storage.setItem('@rochade/user_id', 'stored-user');
+    await storage.setItem('@bananalytics/user_id', 'stored-user');
 
     const persister = new Persister(storage, logger);
     const identity = new UserIdentity(persister, logger);

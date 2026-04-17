@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/rochade-analytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/domain"
 )
 
 type contextKey string

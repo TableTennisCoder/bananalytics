@@ -1,6 +1,6 @@
-# Rochade Server
+# Bananalytics Server
 
-Self-hosted analytics backend for React Native apps. Ingests events from the `@rochade/react-native` SDK, stores them in PostgreSQL, and exposes query APIs for dashboards.
+Self-hosted analytics backend for React Native apps. Ingests events from the `@bananalytics/react-native` SDK, stores them in PostgreSQL, and exposes query APIs for dashboards.
 
 ## Quick Start
 
@@ -9,7 +9,7 @@ Self-hosted analytics backend for React Native apps. Ingests events from the `@r
 docker-compose up --build
 
 # Or run locally
-export ROCHADE_DB_DSN="postgres://rochade:rochade@localhost:5432/rochade?sslmode=disable"
+export BANANA_DB_DSN="postgres://bananalytics:bananalytics@localhost:5432/bananalytics?sslmode=disable"
 make build && make run
 ```
 
@@ -17,11 +17,11 @@ make build && make run
 
 | Variable | Default | Description |
 |---|---|---|
-| `ROCHADE_PORT` | `8080` | HTTP server port |
-| `ROCHADE_DB_DSN` | (required) | PostgreSQL connection string |
-| `ROCHADE_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
-| `ROCHADE_RATE_LIMIT_RPM` | `1000` | Requests per minute per API key |
-| `ROCHADE_CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated) |
+| `BANANA_PORT` | `8080` | HTTP server port |
+| `BANANA_DB_DSN` | (required) | PostgreSQL connection string |
+| `BANANA_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
+| `BANANA_RATE_LIMIT_RPM` | `1000` | Requests per minute per API key |
+| `BANANA_CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated) |
 
 ## API Reference
 
@@ -55,16 +55,14 @@ Authorization: Bearer <secret_key>
 ### Rotate Keys
 
 ```
-GET /v1/projects/:id/keys
-Authorization: Bearer <secret_key>
+POST /v1/projects/:id/keys/rotate
+Authorization: Session (project owner)
 ```
 
 ## Database Migrations
 
-```bash
-psql $ROCHADE_DB_DSN -f internal/storage/postgres/migrations/001_create_projects.up.sql
-psql $ROCHADE_DB_DSN -f internal/storage/postgres/migrations/002_create_events.up.sql
-```
+Migrations are applied automatically on server startup via `golang-migrate` with embedded SQL files.
+You don't need to run them manually — just start the server.
 
 ## Development
 

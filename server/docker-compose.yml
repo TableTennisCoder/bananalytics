@@ -2,32 +2,39 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: rochade
-      POSTGRES_PASSWORD: rochade
-      POSTGRES_DB: rochade
+      POSTGRES_USER: bananalytics
+      POSTGRES_PASSWORD: bananalytics
+      POSTGRES_DB: bananalytics
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rochade"]
+      test: ["CMD-SHELL", "pg_isready -U bananalytics"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  rochade:
+  bananalytics:
     build: .
     # No public ports — Caddy handles external traffic
     expose:
       - "8080"
     environment:
-      ROCHADE_PORT: "8080"
-      ROCHADE_DB_DSN: "postgres://rochade:rochade@postgres:5432/rochade?sslmode=disable"
-      ROCHADE_LOG_LEVEL: "info"
-      ROCHADE_RATE_LIMIT_RPM: "1000"
-      ROCHADE_CORS_ORIGINS: "${ROCHADE_CORS_ORIGINS:-*}"
-      ROCHADE_DB_MAX_CONNS: "25"
-      ROCHADE_DB_MIN_CONNS: "5"
+      BANANA_PORT: "8080"
+      BANANA_DB_DSN: "postgres://bananalytics:bananalytics@postgres:5432/bananalytics?sslmode=disable"
+      BANANA_LOG_LEVEL: "info"
+      BANANA_RATE_LIMIT_RPM: "1000"
+      BANANA_CORS_ORIGINS: "${BANANA_CORS_ORIGINS:-*}"
+      BANANA_DB_MAX_CONNS: "25"
+      BANANA_DB_MIN_CONNS: "5"
+      # GeoIP database path inside the container.
+      # The ./geoip directory is mounted below — run scripts/download-geoip.sh
+      # to populate it. If the file doesn't exist, GeoIP is silently disabled.
+      BANANA_GEOIP_DB: "/app/geoip/GeoLite2-City.mmdb"
+    volumes:
+      # Mount the geoip directory read-only. If empty, GeoIP is disabled gracefully.
+      - ./geoip:/app/geoip:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,13 +46,13 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      ROCHADE_DOMAIN: "${ROCHADE_DOMAIN:-localhost}"
+      BANANA_DOMAIN: "${BANANA_DOMAIN:-localhost}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - rochade
+      - bananalytics
     restart: unless-stopped
 
 volumes:

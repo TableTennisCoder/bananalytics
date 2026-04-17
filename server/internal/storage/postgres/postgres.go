@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/rochade-analytics/server/internal/domain"
-	"github.com/rochade-analytics/server/internal/storage"
+	"github.com/bananalytics/server/internal/domain"
+	"github.com/bananalytics/server/internal/storage"
 )
 
 // EventStore implements storage.EventRepository using PostgreSQL.
@@ -383,6 +383,16 @@ func (s *ProjectStore) FindBySecretKey(ctx context.Context, secretKey string) (*
 	return s.scanProject(ctx, findProjectBySecretKeyQuery, secretKey)
 }
 
+// FindByWriteKeyPrefix looks up projects by write key prefix for hash-based verification.
+func (s *ProjectStore) FindByWriteKeyPrefix(ctx context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	return s.scanProjectsWithHash(ctx, findProjectByWriteKeyPrefixQuery, prefix)
+}
+
+// FindBySecretKeyPrefix looks up projects by secret key prefix for hash-based verification.
+func (s *ProjectStore) FindBySecretKeyPrefix(ctx context.Context, prefix string) ([]storage.ProjectWithHash, error) {
+	return s.scanProjectsWithHash(ctx, findProjectBySecretKeyPrefixQuery, prefix)
+}
+
 // FindByID looks up a project by ID.
 func (s *ProjectStore) FindByID(ctx context.Context, id string) (*domain.Project, error) {
 	return s.scanProject(ctx, findProjectByIDQuery, id)
@@ -415,4 +425,29 @@ func (s *ProjectStore) scanProject(ctx context.Context, query string, arg any) (
 		return nil, fmt.Errorf("find project: %w", err)
 	}
 	return &p, nil
+}
+
+func (s *ProjectStore) scanProjectsWithHash(ctx context.Context, query string, prefix string) ([]storage.ProjectWithHash, error) {
+	rows, err := s.pool.Query(ctx, query, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("find projects by prefix: %w", err)
+	}
+	defer rows.Close()
+
+	var results []storage.ProjectWithHash
+	for rows.Next() {
+		var pwh storage.ProjectWithHash
+		var keyHash string
+		if err := rows.Scan(
+			&pwh.Project.ID, &pwh.Project.Name,
+			&pwh.Project.WriteKey, &pwh.Project.SecretKey,
+			&keyHash,
+			&pwh.Project.CreatedAt, &pwh.Project.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan project with hash: %w", err)
+		}
+		pwh.KeyHash = keyHash
+		results = append(results, pwh)
+	}
+	return results, rows.Err()
 }

@@ -1,4 +1,4 @@
-// Polyfill MUST be first import — before uuid/Rochade
+// Polyfill MUST be first import — before uuid/Bananalytics
 import "react-native-get-random-values";
 
 import { useState } from "react";
@@ -12,13 +12,13 @@ import {
   Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { RochadeClient } from "@rochade/react-native";
+import { BananalyticsClient } from "@bananalytics/react-native";
 
 const API_KEY = "rk_28e0bae1-43e6-498f-9404-9be05eb8c891";
 const ENDPOINT = "http://192.168.178.70:8080";
 
 // Create client once, passing AsyncStorage explicitly
-let client: RochadeClient | null = null;
+let client: BananalyticsClient | null = null;
 
 export default function App() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -31,7 +31,7 @@ export default function App() {
 
   const handleInit = async () => {
     try {
-      client = new RochadeClient(
+      client = new BananalyticsClient(
         {
           apiKey: API_KEY,
           endpoint: ENDPOINT,
@@ -96,7 +96,7 @@ export default function App() {
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
-      <Text style={styles.title}>Rochade SDK Test</Text>
+      <Text style={styles.title}>Bananalytics SDK Test</Text>
       <Text style={styles.subtitle}>
         {initialized ? "SDK Initialized" : "Not initialized"} ({Platform.OS})
       </Text>

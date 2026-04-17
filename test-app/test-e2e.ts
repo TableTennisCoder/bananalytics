@@ -3,12 +3,12 @@
  * Tests the full flow: create project -> ingest events -> query them back.
  *
  * Usage:
- *   1. Start the backend: cd server && docker-compose up postgres -d && go run ./cmd/rochade
- *   2. Run migrations (see server/README.md)
+ *   1. Start the backend: cd server && docker-compose up postgres -d && go run ./cmd/bananalytics
+ *   2. Migrations apply automatically on server startup
  *   3. Run this script: npx ts-node test-e2e.ts
  */
 
-const BASE_URL = process.env.ROCHADE_URL || 'http://localhost:8080';
+const BASE_URL = process.env.BANANA_URL || 'http://localhost:8080';
 
 interface Project {
   id: string;

@@ -1,8 +1,8 @@
 # Production: Replace with your actual domain
 # Caddy automatically provisions Let's Encrypt TLS certificates
-{$ROCHADE_DOMAIN:localhost} {
+{$BANANA_DOMAIN:localhost} {
 	# Reverse proxy to Go server
-	reverse_proxy rochade:8080
+	reverse_proxy bananalytics:8080
 
 	# Security headers
 	header {

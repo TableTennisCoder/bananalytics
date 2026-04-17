@@ -302,7 +302,7 @@ docker-compose up -d`}</CodeBlock>
               together, and database migrations are applied automatically on
               startup — no manual SQL needed. Verify with{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                docker-compose logs rochade
+                docker-compose logs bananalytics
               </code>{" "}
               — you should see{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
@@ -489,7 +489,7 @@ docker-compose up -d`}</CodeBlock>
             <h4 className="text-base font-semibold mt-8 mb-3">
               3. Restart the server
             </h4>
-            <CodeBlock>{`docker-compose restart rochade`}</CodeBlock>
+            <CodeBlock>{`docker-compose restart bananalytics`}</CodeBlock>
             <p>
               You should see{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
@@ -512,7 +512,7 @@ docker-compose up -d`}</CodeBlock>
             </p>
             <CodeBlock title="Cron — first Sunday of every month, 3 AM">{`0 3 1-7 * 0 cd /path/to/bananalytics/server && \\
   MAXMIND_LICENSE_KEY=xxx ./scripts/download-geoip.sh && \\
-  docker-compose restart rochade`}</CodeBlock>
+  docker-compose restart bananalytics`}</CodeBlock>
 
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-sm">
