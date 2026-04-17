@@ -2,22 +2,22 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   BarChart3, Globe, Lock, Zap, GitBranch, Users, Radio, Server,
-  ArrowRight, Check, X, GitFork, Shield, ChevronRight,
+  ArrowRight, Check, X, GitFork, Shield, ChevronRight, ChevronDown,
 } from "lucide-react";
 
 export default function LandingPage() {
   return (
-    <div className="relative flex min-h-screen flex-col bg-background text-foreground overflow-x-hidden">
+    <div className="relative flex min-h-screen flex-col bg-background text-foreground overflow-x-clip">
 
-      {/* Floating Navbar */}
+      {/* Floating Navbar — sticky + frosted glass */}
       <div className="sticky top-4 z-50 mx-auto w-full max-w-[1120px] px-4">
-        <nav className="flex h-14 items-center justify-between border border-white/[0.06] bg-background/60 px-5 backdrop-blur-xl">
+        <nav className="flex h-14 items-center justify-between rounded-2xl border border-white/[0.08] bg-background/40 px-5 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl backdrop-saturate-150 supports-[backdrop-filter]:bg-background/30">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="text-xl">&#x1F34C;</span>
             <span className="text-[14px] font-bold tracking-tight" style={{ fontFamily: 'var(--font-brand)' }}>Bananalytics</span>
           </Link>
           <div className="hidden items-center gap-7 md:flex">
-            <NL href="#features">Features</NL><NL href="#compare">Compare</NL><NL href="#pricing">Pricing</NL><NL href="/docs">Docs</NL><NL href="/about">About</NL>
+            <NL href="#features">Features</NL><NL href="#compare">Compare</NL><NL href="#pricing">Pricing</NL><NL href="#faq">FAQ</NL><NL href="/docs">Docs</NL><NL href="/about">About</NL>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="hidden text-[13px] text-muted-foreground transition-colors hover:text-foreground sm:block">Log in</Link>
@@ -49,11 +49,11 @@ export default function LandingPage() {
           <div className="absolute right-[25%] top-[68%] h-2.5 w-2.5 border border-primary/[0.08] rotate-45" />
         </div>
 
-        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 pb-24 pt-28 sm:pt-36 lg:pb-32 lg:pt-44">
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 pb-16 pt-28 sm:pt-36 lg:pb-20 lg:pt-44">
           <div className="mx-auto max-w-[740px] text-center">
             <div className="mb-8 flex justify-center">
-              <Link href="/docs" className="group inline-flex items-center gap-2 border border-primary/[0.15] bg-primary/[0.04] px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-all hover:border-primary/[0.3] hover:bg-primary/[0.08]">
-                <span className="h-1.5 w-1.5 bg-primary" />Built for React Native<ChevronRight className="h-3 w-3 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/docs" className="group inline-flex items-center gap-2 rounded-full border border-primary/[0.15] bg-primary/[0.04] px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-all hover:border-primary/[0.3] hover:bg-primary/[0.08]">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />Built for React Native<ChevronRight className="h-3 w-3 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
             <h1 className="text-balance text-[clamp(2rem,5.5vw,3.75rem)] font-semibold leading-[1.1] tracking-[-0.025em]">
@@ -73,9 +73,9 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mx-auto mt-20 max-w-[620px]">
-            <div className="overflow-hidden border border-white/[0.08] bg-[#0A0B0F]/90 shadow-2xl shadow-primary/5">
+            <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0A0B0F]/90 shadow-2xl shadow-primary/5">
               <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-3.5">
-                <div className="h-2.5 w-2.5 bg-primary/30" /><div className="h-2.5 w-2.5 bg-white/10" /><div className="h-2.5 w-2.5 bg-white/10" />
+                <div className="h-2.5 w-2.5 rounded-full bg-primary/30" /><div className="h-2.5 w-2.5 rounded-full bg-white/10" /><div className="h-2.5 w-2.5 rounded-full bg-white/10" />
                 <span className="ml-3 text-[11px] text-white/20 font-mono">App.tsx</span>
               </div>
               <pre className="p-5 font-mono text-[13px] leading-[1.9] overflow-x-auto"><code>
@@ -96,7 +96,7 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-24 sm:py-32">
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
           <div className="grid grid-cols-1 gap-16 md:grid-cols-2 md:gap-24">
             <div>
               <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-destructive/70">The problem</p>
@@ -128,7 +128,7 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-24 sm:py-32">
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
           <SH l="Features" t="Enterprise analytics, indie pricing" />
           <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <GC i={<Zap className="h-5 w-5" />} t="React Native SDK" d="Auto-captures lifecycle, screens, sessions. Expo & bare RN." />
@@ -147,7 +147,7 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-24 sm:py-32">
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
           <SH l="Setup" t="Zero to tracking in 5 minutes" s="No account. No credit card. No sales call." />
           <div className="mt-16 grid grid-cols-1 gap-4 md:grid-cols-3">
             <SC n="1" t="Deploy" d="Docker boots the server + Postgres." c="docker-compose up -d" />
@@ -163,9 +163,9 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-24 sm:py-32">
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
           <SH l="Comparison" t="How Bananalytics stacks up" s="Same features. Fraction of the cost." />
-          <div className="mt-16 overflow-x-auto border border-white/[0.06] bg-white/[0.015]">
+          <div className="mt-16 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015]">
             <table className="w-full text-[13px]">
               <thead><tr className="border-b border-white/[0.05]">
                 <th className="px-5 py-4 text-left font-medium text-muted-foreground/50 w-[180px]" />
@@ -202,7 +202,7 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[720px] px-4 py-24 sm:py-32 text-center">
+        <div className="mx-auto max-w-[720px] px-4 py-14 sm:py-20 text-center">
           <blockquote className="text-[22px] font-medium leading-relaxed tracking-tight text-balance sm:text-[28px]">&ldquo;Your React Native app collects sensitive behavioral data. It should stay on <span className="text-primary">your</span> server.&rdquo;</blockquote>
           <p className="mt-6 text-[14px] text-muted-foreground/50">Your users trust you. Bananalytics keeps that trust.</p>
         </div>
@@ -214,10 +214,10 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-24 sm:py-32">
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
           <SH l="Pricing" t="No per-event fees. Ever." s="Self-host for free, or let us run it." />
           <div className="mx-auto mt-16 grid max-w-[840px] grid-cols-1 gap-5 md:grid-cols-2">
-            <div className="border border-white/[0.06] bg-white/[0.02] p-7 transition-colors hover:border-white/[0.1]">
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 transition-colors hover:border-white/[0.1]">
               <div className="flex items-center gap-2 mb-1"><Server className="h-4 w-4 text-muted-foreground/50" /><h3 className="text-[15px] font-semibold">Self-Hosted</h3></div>
               <p className="text-[12px] text-muted-foreground/50 mb-5">Your server. Your data. Your rules.</p>
               <p className="text-[36px] font-bold tracking-tight leading-none">$0</p>
@@ -225,8 +225,8 @@ export default function LandingPage() {
               <ul className="space-y-2.5 mb-7"><PF t="Unlimited events" /><PF t="All features" /><PF t="Full source (MIT)" /><PF t="Deploy in 5 min" /><PF t="Community support" /></ul>
               <Link href="/docs#quick-start"><Button variant="outline" className="w-full h-9 border-white/[0.08] bg-white/[0.03] text-[13px] hover:bg-white/[0.06]">Start Self-Hosting</Button></Link>
             </div>
-            <div className="relative border border-primary/30 bg-white/[0.02] p-7 shadow-[0_0_60px_-15px] shadow-primary/10">
-              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2"><span className="bg-primary px-3 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-md shadow-primary/20">Coming Soon</span></div>
+            <div className="relative rounded-2xl border border-primary/30 bg-white/[0.02] p-7 shadow-[0_0_60px_-15px] shadow-primary/10">
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2"><span className="rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-md shadow-primary/20">Coming Soon</span></div>
               <div className="flex items-center gap-2 mb-1"><BarChart3 className="h-4 w-4 text-primary" /><h3 className="text-[15px] font-semibold">Bananalytics Cloud</h3></div>
               <p className="text-[12px] text-muted-foreground/50 mb-5">Zero maintenance. We handle everything.</p>
               <p className="text-[36px] font-bold tracking-tight leading-none">$29<span className="text-sm font-normal text-muted-foreground/50 ml-0.5">/mo</span></p>
@@ -238,6 +238,51 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ */}
+      <section id="faq" className="relative border-t border-white/[0.04]">
+        <div className="pointer-events-none absolute inset-y-0 left-4 right-4 mx-auto max-w-[1120px] hidden lg:block">
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
+        </div>
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
+          <SH l="FAQ" t="Questions, answered" s="Everything you need to know before you ship." />
+          <div className="mx-auto mt-12 max-w-[760px] space-y-3">
+            <FAQ
+              q="How long does setup actually take?"
+              a="If you have Docker installed, the backend boots in about a minute (one docker-compose up -d command). The React Native SDK is ~3 lines of code: install the package, call init() with your API key, start tracking. End-to-end, you'll be sending real events in under 10 minutes — and that includes signing up and creating a project."
+            />
+            <FAQ
+              q="Does it work with Expo, or only bare React Native?"
+              a="Both. Expo (managed workflow + EAS), Expo Dev Client, and bare React Native are all first-class. The only native module the SDK pulls in is AsyncStorage for offline event queuing, which works everywhere. No native code to link, no Xcode/Android Studio dance."
+            />
+            <FAQ
+              q="Will it slow down my app or bloat my bundle?"
+              a="The SDK is ~12KB gzipped (vs. Mixpanel's ~200KB+). Events are batched and sent on background flush intervals (default every 30s, or when 20 events queue up), so there's no blocking work on the main thread. Network calls happen off your render path. We benchmark FPS impact at <0.1ms per track() call."
+            />
+            <FAQ
+              q="Is it really GDPR/CCPA compliant out of the box?"
+              a="Yes — by design. All event data lives on your infrastructure, so you're the data controller and processor. The SDK has built-in opt-in/opt-out methods (Bananalytics.optOut()) and never collects PII automatically. No cookies, no third-party trackers, no IP storage by default. You still need a privacy policy and consent flow for your users, but there's no data-processing agreement to sign with us — because there's no us in the data path."
+            />
+            <FAQ
+              q="What happens to events if my server goes down?"
+              a="The SDK persists events locally via AsyncStorage and retries with exponential backoff + jitter when the network or server is unavailable. Events queue up to a configurable maxQueueSize (default 1000) and flush automatically when connectivity returns. So a 2-hour Postgres outage means zero data loss — your users keep tracking, events sync once you're back."
+            />
+            <FAQ
+              q="Can I migrate my existing Mixpanel or Amplitude data?"
+              a="Not automatically yet — historical data import is on the roadmap. For now, the practical approach is to dual-track for a few weeks (send events to both Mixpanel and Bananalytics simultaneously), then cut Mixpanel once you're confident. The SDK's API is intentionally similar to Mixpanel's (track, identify, screen) so migrating call sites is mostly a find-and-replace."
+            />
+            <FAQ
+              q="Why not just use PostHog (also open source)?"
+              a="PostHog is great, but it's built for web-first analytics with React Native as an afterthought. Bananalytics is React Native-first: native session handling, app lifecycle tracking, offline queuing, and a dashboard built around mobile-specific events (screens, app_opened, push notifications). Plus, PostHog self-hosted requires significant DevOps — Bananalytics runs on a single $4/month VPS with one Docker command."
+            />
+            <FAQ
+              q="When will Bananalytics Cloud launch?"
+              a="Soon — we're targeting Q3 2026 for managed Cloud with custom domains, SSL, and 99.9% SLA. Self-hosted is fully production-ready today. If you want early access to Cloud, join the waitlist and you'll get a discount at launch."
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA */}
       <section className="relative border-t border-white/[0.04]">
         <div className="pointer-events-none absolute inset-y-0 left-4 right-4 mx-auto max-w-[1120px] hidden lg:block">
@@ -245,7 +290,7 @@ export default function LandingPage() {
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
         <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[500px] rounded-full bg-primary/[0.04] blur-[100px]" />
-        <div className="mx-auto max-w-[600px] px-4 py-24 sm:py-32 text-center">
+        <div className="mx-auto max-w-[600px] px-4 py-14 sm:py-20 text-center">
           <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-balance sm:text-[36px]">Ready to own your analytics?</h2>
           <p className="mx-auto mt-4 max-w-[400px] text-[15px] text-muted-foreground/60">Deploy in 5 minutes. No account, no credit card, no lock-in.</p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -263,7 +308,7 @@ export default function LandingPage() {
         </div>
         <div className="mx-auto flex max-w-[1120px] flex-col items-center justify-between gap-6 px-4 lg:px-12 py-8 sm:flex-row">
           <div className="flex items-center gap-2"><span className="text-sm">&#x1F34C;</span><span className="text-[12px] font-bold text-muted-foreground/60" style={{ fontFamily: 'var(--font-brand)' }}>Bananalytics</span></div>
-          <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/login" className="transition-colors hover:text-foreground">Dashboard</Link><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com" className="transition-colors hover:text-foreground">GitHub</a></div>
+          <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/#faq" className="transition-colors hover:text-foreground">FAQ</Link><Link href="/login" className="transition-colors hover:text-foreground">Dashboard</Link><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com" className="transition-colors hover:text-foreground">GitHub</a></div>
           <p className="text-[11px] text-muted-foreground/25">MIT License</p>
         </div>
       </footer>
@@ -273,10 +318,24 @@ export default function LandingPage() {
 
 function NL({ href, children }: { href: string; children: React.ReactNode }) { return <Link href={href} className="text-[13px] text-muted-foreground/70 transition-colors hover:text-foreground">{children}</Link>; }
 function SH({ l, t, s }: { l: string; t: string; s?: string }) { return <div className="mx-auto max-w-[540px] text-center"><p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/70">{l}</p><h2 className="text-[28px] font-semibold leading-tight tracking-tight text-balance sm:text-[36px]">{t}</h2>{s && <p className="mt-3 text-[15px] text-muted-foreground/60">{s}</p>}</div>; }
-function GC({ i, t, d }: { i: React.ReactNode; t: string; d: string }) { return <div className="group border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-200 hover:border-primary/20 hover:bg-primary/[0.03]"><div className="mb-4 flex h-9 w-9 items-center justify-center bg-primary/[0.1] text-primary transition-colors group-hover:bg-primary/[0.18]">{i}</div><h3 className="mb-1.5 text-[14px] font-semibold">{t}</h3><p className="text-[13px] leading-relaxed text-muted-foreground/50">{d}</p></div>; }
-function SC({ n, t, d, c }: { n: string; t: string; d: string; c: string }) { return <div className="border border-white/[0.06] bg-white/[0.02] p-6 text-center transition-colors hover:border-white/[0.1]"><div className="mx-auto mb-4 flex h-8 w-8 items-center justify-center bg-primary text-[13px] font-bold text-primary-foreground">{n}</div><h3 className="mb-1.5 text-[14px] font-semibold">{t}</h3><p className="mb-4 text-[13px] text-muted-foreground/50">{d}</p><code className="inline-block bg-[#0A0B0F] border border-white/[0.06] px-3.5 py-1.5 font-mono text-[12px] text-primary">{c}</code></div>; }
+function GC({ i, t, d }: { i: React.ReactNode; t: string; d: string }) { return <div className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-200 hover:border-primary/20 hover:bg-primary/[0.03]"><div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/[0.1] text-primary transition-colors group-hover:bg-primary/[0.18]">{i}</div><h3 className="mb-1.5 text-[14px] font-semibold">{t}</h3><p className="text-[13px] leading-relaxed text-muted-foreground/50">{d}</p></div>; }
+function SC({ n, t, d, c }: { n: string; t: string; d: string; c: string }) { return <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center transition-colors hover:border-white/[0.1]"><div className="mx-auto mb-4 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">{n}</div><h3 className="mb-1.5 text-[14px] font-semibold">{t}</h3><p className="mb-4 text-[13px] text-muted-foreground/50">{d}</p><code className="inline-block rounded-md bg-[#0A0B0F] border border-white/[0.06] px-3.5 py-1.5 font-mono text-[12px] text-primary">{c}</code></div>; }
 function PF({ t }: { t: string }) { return <li className="flex items-center gap-2 text-[13px]"><Check className="h-3.5 w-3.5 text-primary shrink-0" /><span className="text-muted-foreground/70">{t}</span></li>; }
 function PI({ t }: { t: string }) { return <li className="flex items-start gap-3 text-[13px]"><X className="mt-0.5 h-4 w-4 text-destructive/50 shrink-0" /><span className="text-muted-foreground/60">{t}</span></li>; }
 function SI({ t }: { t: string }) { return <li className="flex items-start gap-3 text-[13px]"><Check className="mt-0.5 h-4 w-4 text-primary/80 shrink-0" /><span className="text-muted-foreground/80">{t}</span></li>; }
 function CR({ f, r, m, a, p, g }: { f: string; r: boolean; m: boolean; a: boolean; p: boolean | "self"; g: boolean }) { return <tr className="transition-colors hover:bg-white/[0.015]"><td className="px-5 py-3 font-medium">{f}</td><td className="px-5 py-3 text-center"><CI v={r} hl /></td><td className="px-5 py-3 text-center"><CI v={m} /></td><td className="px-5 py-3 text-center"><CI v={a} /></td><td className="px-5 py-3 text-center"><CI v={p} /></td><td className="px-5 py-3 text-center hidden lg:table-cell"><CI v={g} /></td></tr>; }
 function CI({ v, hl }: { v: boolean | "self"; hl?: boolean }) { if (v === "self") return <span className="text-[10px] text-muted-foreground/30">self-host</span>; if (v) return <Check className={`h-3.5 w-3.5 mx-auto ${hl ? "text-primary" : "text-muted-foreground/30"}`} />; return <X className="h-3.5 w-3.5 mx-auto text-muted-foreground/10" />; }
+
+function FAQ({ q, a }: { q: string; a: string }) {
+  return (
+    <details className="group overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-colors open:border-white/[0.1] hover:border-white/[0.1]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-[14px] font-medium [&::-webkit-details-marker]:hidden">
+        <span>{q}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-white/[0.04] px-5 py-4 text-[13px] leading-[1.7] text-muted-foreground/80">
+        {a}
+      </div>
+    </details>
+  );
+}

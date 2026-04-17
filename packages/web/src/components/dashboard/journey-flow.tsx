@@ -5,10 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { formatRelative } from "@/lib/format";
 import type { EventResult } from "@/types/events";
 
+// Event type colors — reference brand tokens in globals.css.
+// Edit the brand palette there to recolor everything.
 const TYPE_COLORS: Record<string, string> = {
-  screen: "#3B82F6",
-  track: "#FFD60A",
-  identify: "#22C55E",
+  screen: "var(--chart-5)",
+  track: "var(--primary)",
+  identify: "var(--chart-4)",
 };
 
 const NODE_W = 220;
@@ -143,9 +145,9 @@ export function JourneyFlow({ events, className }: JourneyFlowProps) {
                 key={i}
                 d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
                 fill="none"
-                stroke="#FFD60A"
                 strokeWidth={2}
                 opacity={0.3}
+                style={{ stroke: "var(--primary)" }}
               >
                 <animate
                   attributeName="stroke-dashoffset"
@@ -172,9 +174,9 @@ export function JourneyFlow({ events, className }: JourneyFlowProps) {
                 key={`glow-${i}`}
                 d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
                 fill="none"
-                stroke="#FFD60A"
                 strokeWidth={1}
                 opacity={0.1}
+                style={{ stroke: "var(--primary)" }}
               />
             );
           })}
@@ -183,7 +185,7 @@ export function JourneyFlow({ events, className }: JourneyFlowProps) {
         {/* Nodes */}
         {sorted.map((event, i) => {
           const pos = positions[i];
-          const color = TYPE_COLORS[event.type] || "#FFD60A";
+          const color = TYPE_COLORS[event.type] || "var(--primary)";
           const prop = topProp(event);
 
           return (

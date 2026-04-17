@@ -37,12 +37,12 @@ export default function WaitlistPage() {
       <div className="pointer-events-none absolute left-1/2 top-[20%] -z-10 -translate-x-1/2 h-[400px] w-[600px] rounded-full bg-primary/[0.06] blur-[150px]" />
 
       <main className="flex-1">
-        <div className="mx-auto max-w-[560px] px-4 py-24 sm:py-32">
+        <div className="mx-auto max-w-[560px] px-4 py-14 sm:py-20">
           {!submitted ? (
             <>
               {/* Badge */}
               <div className="flex justify-center mb-8">
-                <span className="inline-flex items-center gap-2 border border-primary/20 bg-primary/[0.06] px-3.5 py-1.5 text-[12px] font-medium text-primary">
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.06] px-3.5 py-1.5 text-[12px] font-medium text-primary">
                   <Cloud className="h-3.5 w-3.5" />
                   Coming Soon
                 </span>
@@ -108,7 +108,7 @@ export default function WaitlistPage() {
               </div>
 
               {/* Pricing preview */}
-              <div className="mt-16 border border-border bg-card p-6 text-center">
+              <div className="mt-16 rounded-2xl border border-border bg-card p-6 text-center">
                 <p className="text-[12px] text-muted-foreground/50 mb-2">Starting at</p>
                 <p className="text-[40px] font-bold tracking-tight leading-none">
                   $29<span className="text-sm font-normal text-muted-foreground/50 ml-1">/mo</span>
@@ -119,7 +119,7 @@ export default function WaitlistPage() {
           ) : (
             /* Success State */
             <div className="text-center py-8">
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center bg-primary/10">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <Check className="h-8 w-8 text-primary" />
               </div>
               <h1 className="text-2xl font-semibold">You&apos;re on the list!</h1>
@@ -159,8 +159,8 @@ export default function WaitlistPage() {
 
 function Feature({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 border border-border bg-card p-3.5">
-      <div className="flex h-8 w-8 items-center justify-center bg-primary/[0.08] text-primary shrink-0">
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/[0.08] text-primary shrink-0">
         {icon}
       </div>
       <div>
@@ -173,7 +173,7 @@ function Feature({ icon, title, description }: { icon: React.ReactNode; title: s
 
 function Location({ country, city, region }: { country: string; city: string; region: string }) {
   return (
-    <div className="flex items-center gap-2.5 border border-border bg-card px-3 py-2.5">
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5">
       <img
         src={`https://cdn.countryflags.com/thumbs/${country}/flag-round-250.png`}
         alt={city}

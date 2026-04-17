@@ -180,21 +180,27 @@ export function WorldMap({ data, className }: WorldMapProps) {
                     onMouseLeave={() => setTooltip(null)}
                     style={{
                       default: {
-                        fill: count > 0 ? `rgba(255, 214, 10, ${intensity})` : "#1A1B21",
-                        stroke: "#2A2B33",
+                        // Brand yellow tinted by intensity, falls back to muted surface.
+                        // Uses CSS vars from globals.css so theme changes propagate here.
+                        fill: count > 0
+                          ? `color-mix(in srgb, var(--primary) ${Math.round(intensity * 100)}%, transparent)`
+                          : "var(--muted)",
+                        stroke: "var(--border)",
                         strokeWidth: 0.5,
                         outline: "none",
                       },
                       hover: {
-                        fill: count > 0 ? `rgba(255, 214, 10, ${Math.min(intensity + 0.2, 1)})` : "#252630",
-                        stroke: "#FFD60A",
+                        fill: count > 0
+                          ? `color-mix(in srgb, var(--primary) ${Math.round(Math.min(intensity + 0.2, 1) * 100)}%, transparent)`
+                          : "var(--accent)",
+                        stroke: "var(--primary)",
                         strokeWidth: 0.8,
                         outline: "none",
                         cursor: "pointer",
                       },
                       pressed: {
-                        fill: `rgba(255, 214, 10, ${Math.min(intensity + 0.3, 1)})`,
-                        stroke: "#FFD60A",
+                        fill: `color-mix(in srgb, var(--primary) ${Math.round(Math.min(intensity + 0.3, 1) * 100)}%, transparent)`,
+                        stroke: "var(--primary)",
                         strokeWidth: 0.8,
                         outline: "none",
                       },

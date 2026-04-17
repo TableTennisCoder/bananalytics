@@ -9,12 +9,14 @@ interface CodeBlockProps {
   lang?: string;
 }
 
+// Syntax highlight colors — all reference brand tokens defined in globals.css
+// so theme changes propagate here automatically.
 const COLORS = {
-  keyword: "#FFD60A",
-  string: "#22C55E",
-  comment: "#6B6D7B",
-  property: "#9CA3AF",
-  text: "#E8E9ED",
+  keyword: "var(--primary)",
+  string: "var(--chart-4)",
+  comment: "var(--muted-foreground)",
+  property: "color-mix(in srgb, var(--foreground) 60%, transparent)",
+  text: "var(--foreground)",
 };
 
 export function CodeBlock({ children, title, lang = "bash" }: CodeBlockProps) {
