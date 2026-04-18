@@ -2,14 +2,16 @@
 # Caddy automatically provisions Let's Encrypt TLS certificates.
 #
 # Routing:
-#   /v1/*, /api/*, /health  → Go backend (bananalytics:8080)
-#   everything else         → Next.js dashboard (dashboard:3000)
+#   /v1/*, /health    → Go backend (bananalytics:8080)
+#   everything else   → Next.js dashboard (dashboard:3000)
+#                       includes /api/* — these are Next.js API routes that
+#                       internally proxy to the Go backend at /v1/*
 {$BANANA_DOMAIN:localhost} {
-	# API + health routes go to the Go server
-	@api path /v1/* /api/* /health
-	reverse_proxy @api bananalytics:8080
+	# Backend ingest + query + health
+	@backend path /v1/* /health
+	reverse_proxy @backend bananalytics:8080
 
-	# Everything else is the Next.js dashboard (login, setup, /dashboard/*, /demo/*)
+	# Everything else (dashboard pages + Next.js /api/* proxy routes)
 	reverse_proxy dashboard:3000
 
 	# Security headers
