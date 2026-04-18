@@ -218,10 +218,10 @@ export default function DocsPage() {
             <p className="text-sm pt-2">
               <strong>1. Create your account.</strong> Head to{" "}
               <a
-                href="https://app.bananalytics.com/signup"
+                href="https://app.bananalytics.xyz/signup"
                 className="text-primary hover:underline"
               >
-                app.bananalytics.com/signup
+                app.bananalytics.xyz/signup
               </a>{" "}
               and register. Email + password, takes 30 seconds.
             </p>
@@ -267,7 +267,7 @@ export default function DocsPage() {
               <code className="font-mono text-xs">rk_…</code> key, and you&apos;re
               tracking events. Your endpoint URL is{" "}
               <code className="font-mono text-xs">
-                https://ingest.bananalytics.com
+                https://app.bananalytics.xyz
               </code>
               .
             </p>
