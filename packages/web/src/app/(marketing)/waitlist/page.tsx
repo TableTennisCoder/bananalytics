@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Check, Cloud, Zap, Shield, Headphones, Globe, Database } from "lucide-react";
+import { DEMO_URL } from "@/lib/dashboard-url";
 
 export default function WaitlistPage() {
   const [email, setEmail] = useState("");
@@ -132,11 +133,11 @@ export default function WaitlistPage() {
                     Start Self-Hosting
                   </Button>
                 </Link>
-                <Link href="/demo/dashboard">
+                <a href={DEMO_URL}>
                   <Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] hover:bg-white/[0.06]">
                     Try the Demo
                   </Button>
-                </Link>
+                </a>
               </div>
             </div>
           )}

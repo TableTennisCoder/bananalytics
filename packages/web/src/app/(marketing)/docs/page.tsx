@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
+import { LOGIN_URL } from "@/lib/dashboard-url";
 import {
   ArrowLeft,
   Terminal,
@@ -101,9 +102,9 @@ export default function DocsPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to home
           </Link>
-          <Link href="/login">
+          <a href={LOGIN_URL}>
             <Button size="sm">Dashboard</Button>
-          </Link>
+          </a>
         </div>
       </header>
 

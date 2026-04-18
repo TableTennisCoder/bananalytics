@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { LOGIN_URL, DEMO_URL } from "@/lib/dashboard-url";
 import {
   BarChart3, Globe, Lock, Zap, GitBranch, Users, Radio, Server,
   ArrowRight, Check, X, GitFork, Shield, ChevronRight, ChevronDown,
@@ -20,7 +21,7 @@ export default function LandingPage() {
             <NL href="#features">Features</NL><NL href="#compare">Compare</NL><NL href="#pricing">Pricing</NL><NL href="#faq">FAQ</NL><NL href="/docs">Docs</NL><NL href="/about">About</NL>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden text-[13px] text-muted-foreground transition-colors hover:text-foreground sm:block">Log in</Link>
+            <a href={LOGIN_URL} className="hidden text-[13px] text-muted-foreground transition-colors hover:text-foreground sm:block">Log in</a>
             <Link href="/docs#quick-start"><Button size="sm" className="h-8 bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:bg-primary/90">Get Started</Button></Link>
           </div>
         </nav>
@@ -64,7 +65,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href="/docs#quick-start"><Button className="h-10 bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 gap-2">Deploy in 5 minutes <ArrowRight className="h-4 w-4" /></Button></Link>
-              <Link href="/demo/dashboard"><Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] font-medium hover:bg-white/[0.06] shadow-md">Live Demo</Button></Link>
+              <a href={DEMO_URL}><Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] font-medium hover:bg-white/[0.06] shadow-md">Live Demo</Button></a>
             </div>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[12px] text-muted-foreground/50 font-medium">
               <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" />GDPR compliant</span>
@@ -378,7 +379,7 @@ export default function LandingPage() {
         </div>
         <div className="mx-auto flex max-w-[1120px] flex-col items-center justify-between gap-6 px-4 lg:px-12 py-8 sm:flex-row">
           <div className="flex items-center gap-2"><span className="text-sm">&#x1F34C;</span><span className="text-[12px] font-bold text-muted-foreground/60" style={{ fontFamily: 'var(--font-brand)' }}>Bananalytics</span></div>
-          <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/#faq" className="transition-colors hover:text-foreground">FAQ</Link><Link href="/login" className="transition-colors hover:text-foreground">Dashboard</Link><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com" className="transition-colors hover:text-foreground">GitHub</a></div>
+          <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/#faq" className="transition-colors hover:text-foreground">FAQ</Link><a href={LOGIN_URL} className="transition-colors hover:text-foreground">Dashboard</a><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com" className="transition-colors hover:text-foreground">GitHub</a></div>
           <p className="text-[11px] text-muted-foreground/25">MIT License</p>
         </div>
       </footer>

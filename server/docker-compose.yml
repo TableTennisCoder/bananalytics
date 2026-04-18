@@ -40,6 +40,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  dashboard:
+    build:
+      context: ../packages/dashboard
+      dockerfile: Dockerfile
+    # No public ports — Caddy fronts it on the same host as the API
+    expose:
+      - "3000"
+    environment:
+      # Server-side calls from Next.js to the Go backend (inside the docker network)
+      BANANA_BACKEND_URL: "http://bananalytics:8080"
+      NODE_ENV: "production"
+    depends_on:
+      bananalytics:
+        condition: service_started
+    restart: unless-stopped
+
   caddy:
     image: caddy:2-alpine
     ports:
@@ -53,6 +69,7 @@ services:
       - caddy_config:/config
     depends_on:
       - bananalytics
+      - dashboard
     restart: unless-stopped
 
 volumes:

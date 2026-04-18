@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { DEMO_URL } from "@/lib/dashboard-url";
 
 export default function AboutPage() {
   return (
@@ -73,11 +74,11 @@ export default function AboutPage() {
                 Try Bananalytics <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/demo/dashboard">
+            <a href={DEMO_URL}>
               <Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] hover:bg-white/[0.06]">
                 See the Demo
               </Button>
-            </Link>
+            </a>
           </div>
 
           {/* Links */}
