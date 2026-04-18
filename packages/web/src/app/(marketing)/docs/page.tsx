@@ -22,6 +22,7 @@ import {
   Cloud,
   Wrench,
   Gauge,
+  Lock,
 } from "lucide-react";
 
 type DocsPath = "cloud" | "self-host";
@@ -37,6 +38,7 @@ const cloudSidebar = [
 
 const selfHostSidebar = [
   { id: "quick-start", label: "Quick Start", icon: Terminal },
+  { id: "server-setup", label: "Server Setup", icon: Lock },
   { id: "hosting", label: "Production Deploy", icon: Globe },
   { id: "capacity", label: "Capacity & Scaling", icon: Gauge },
   { id: "geoip", label: "GeoIP Setup", icon: MapPin },
@@ -386,48 +388,346 @@ docker-compose up -d`}</CodeBlock>
           {/* Self-Host infrastructure — only visible in self-host path */}
           {path === "self-host" && (
           <>
+          {/* Server Setup — Ubuntu hardening before installing Bananalytics */}
+          <DocSection
+            icon={<Lock className="h-5 w-5" />}
+            title="Server Setup"
+            id="server-setup"
+          >
+            <p>
+              Before installing Bananalytics on a fresh VPS, harden Ubuntu so
+              you&apos;re not running production on root with a wide-open
+              firewall. If your server is already locked down (non-root sudo
+              user, key-only SSH, UFW, fail2ban), skip ahead to{" "}
+              <a href="#hosting" className="text-primary hover:underline">
+                Production Deploy
+              </a>
+              .
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              1. First login + system update
+            </h4>
+            <CodeBlock>{`ssh root@your-new-vps-ip
+apt update && apt upgrade -y
+apt autoremove -y`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              2. Create a non-root sudo user
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Don&apos;t use root for daily work. Replace{" "}
+              <code className="font-mono text-xs">max</code> with whatever
+              username you want.
+            </p>
+            <CodeBlock>{`adduser max          # set a password when prompted (used for sudo)
+usermod -aG sudo max`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              3. Copy your SSH key to the new user
+            </h4>
+            <CodeBlock>{`mkdir -p /home/max/.ssh
+cp /root/.ssh/authorized_keys /home/max/.ssh/authorized_keys
+chown -R max:max /home/max/.ssh
+chmod 700 /home/max/.ssh
+chmod 600 /home/max/.ssh/authorized_keys`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Test from your laptop in a <strong>new terminal</strong> (keep
+              the root session open as a fallback):{" "}
+              <code className="font-mono text-xs">ssh max@your-vps-ip</code>
+            </p>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              4. Lock down SSH (disable root + password auth)
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Add a drop-in config (cleanest — won&apos;t be overwritten by
+              cloud-init updates):
+            </p>
+            <CodeBlock>{`sudo tee /etc/ssh/sshd_config.d/00-hardening.conf > /dev/null <<EOF
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+EOF
+
+sudo sshd -t                # must print nothing
+sudo systemctl reload ssh`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              From a <strong>new terminal</strong>:{" "}
+              <code className="font-mono text-xs">ssh root@your-vps-ip</code>{" "}
+              must fail with &ldquo;Permission denied&rdquo;;{" "}
+              <code className="font-mono text-xs">ssh max@your-vps-ip</code>{" "}
+              must succeed. Only then close the existing root session.
+            </p>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              5. Firewall (UFW)
+            </h4>
+            <CodeBlock>{`sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp        # SSH
+sudo ufw allow 80/tcp        # HTTP (Caddy needs for Let's Encrypt)
+sudo ufw allow 443/tcp       # HTTPS
+sudo ufw --force enable
+sudo ufw status verbose`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Don&apos;t open 5432, 8080, or 3000 — Bananalytics binds those
+              to the internal Docker network only. They should never be
+              publicly reachable.
+            </p>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              6. Fail2ban (brute-force protection)
+            </h4>
+            <CodeBlock>{`sudo apt install -y fail2ban
+sudo systemctl enable --now fail2ban
+sudo fail2ban-client status sshd  # see banned IPs anytime`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              7. Automatic security updates
+            </h4>
+            <CodeBlock>{`sudo apt install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+# Press ENTER when asked "Automatically install stable updates? Yes"`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              8. Timezone, hostname, swap
+            </h4>
+            <CodeBlock>{`# Set your timezone (affects log timestamps)
+sudo timedatectl set-timezone Europe/Berlin
+
+# Memorable hostname
+sudo hostnamectl set-hostname bananalytics-prod
+
+# 2 GB swap file — safety net for the 4 GB box
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-6 mb-3">
+              9. Useful tools + reboot
+            </h4>
+            <CodeBlock>{`sudo apt install -y htop ncdu git curl wget tmux jq
+sudo reboot`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Wait ~30 seconds, SSH back in as your new user. The box is now
+              ready for the Bananalytics install. Continue to{" "}
+              <a href="#hosting" className="text-primary hover:underline">
+                Production Deploy
+              </a>
+              .
+            </p>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm">
+                <strong>Realistic time:</strong> ~10 minutes if you copy-paste
+                straight through. Once you&apos;ve done it once, it&apos;s a
+                5-minute ritual for any new box.
+              </p>
+            </div>
+          </DocSection>
+
+          {/* Production Deploy — install Bananalytics on the prepared VPS */}
           <DocSection
             icon={<Globe className="h-5 w-5" />}
             title="Production Deploy"
             id="hosting"
           >
-            <p>Deploy on any VPS with Docker. Recommended: Hetzner CX22 (~$4/month).</p>
-            <CodeBlock title="Production deployment">{`# SSH into your server
-ssh root@your-server-ip
-
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-
-# Clone and start
-git clone https://github.com/bananalytics-analytics/bananalytics.git
-cd bananalytics/server
-
-# Set your domain (Caddy auto-provisions SSL)
-echo "BANANA_DOMAIN=analytics.yourdomain.com" > .env
-echo "BANANA_CORS_ORIGINS=https://yourdomain.com" >> .env
-
-# Start everything (Postgres + Go server + Caddy HTTPS)
-docker-compose up -d`}</CodeBlock>
-            <p className="mt-4">
-              Point your domain&apos;s DNS A-record to your server IP. Caddy
-              handles SSL automatically via Let&apos;s Encrypt.
+            <p>
+              Deploy Bananalytics on any Ubuntu VPS with Docker. Recommended:
+              Hetzner CX22 (2 vCPU, 4 GB, 40 GB) at €4.75/month.
             </p>
-            <p className="mt-4 text-sm">
-              <strong>Then claim your instance.</strong> Open{" "}
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                https://analytics.yourdomain.com/setup
-              </code>{" "}
-              in your browser <strong>immediately</strong> after the first
-              start. The setup page is publicly reachable until the first admin
-              user is created — if anyone else hits it before you do, they
-              own the instance. Register your admin account, then the setup
-              endpoint returns 410 Gone forever.
+            <p className="text-sm text-muted-foreground">
+              <strong>This guide assumes a hardened VPS</strong> — non-root
+              sudo user, key-only SSH, UFW with ports 22/80/443 open. If your
+              server isn&apos;t set up yet, follow{" "}
+              <a href="#server-setup" className="text-primary hover:underline">
+                Server Setup
+              </a>{" "}
+              first.
             </p>
-            <p className="mt-4 text-sm text-muted-foreground">
-              From there, sign in, create a project, and use the{" "}
-              <code className="font-mono text-xs">rk_…</code> write key in your
-              app. See <a href="#quick-start" className="text-primary hover:underline">Quick Start</a> for the full walkthrough.
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              What you&apos;re deploying
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Four containers, all on one VPS. Caddy is the only thing exposed
+              to the internet — everything else lives on the internal Docker
+              network.
             </p>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">Service</th>
+                    <th className="px-4 py-2 text-left font-medium">Port</th>
+                    <th className="px-4 py-2 text-left font-medium">What it does</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">caddy</td>
+                    <td className="px-4 py-2 text-muted-foreground">80, 443 (public)</td>
+                    <td className="px-4 py-2 text-muted-foreground">HTTPS reverse proxy. Routes /v1/*, /health to the backend; everything else to the dashboard. Auto-provisions Let&apos;s Encrypt certificates.</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">dashboard</td>
+                    <td className="px-4 py-2 text-muted-foreground">3000 (internal)</td>
+                    <td className="px-4 py-2 text-muted-foreground">Next.js admin UI. Login, project management, charts, retention, geography, settings.</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">bananalytics</td>
+                    <td className="px-4 py-2 text-muted-foreground">8080 (internal)</td>
+                    <td className="px-4 py-2 text-muted-foreground">Go API server. Event ingestion (/v1/ingest), queries (/v1/query/*), auth (/v1/auth/*), GeoIP enrichment, rate limiting.</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">postgres</td>
+                    <td className="px-4 py-2 text-muted-foreground">5432 (internal)</td>
+                    <td className="px-4 py-2 text-muted-foreground">PostgreSQL 16. Stores users, projects, sessions, and the partitioned events table. Migrations apply automatically on backend startup.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              1. Add a DNS A record
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              In your DNS provider, point the subdomain you want (e.g.{" "}
+              <code className="font-mono text-xs">analytics.yourdomain.com</code>
+              ) at your VPS IP. Verify after ~1 minute:
+            </p>
+            <CodeBlock>{`dig analytics.yourdomain.com +short
+# should print your VPS IP`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Critical: Caddy can&apos;t fetch a Let&apos;s Encrypt cert until
+              DNS resolves correctly.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              2. Install Docker
+            </h4>
+            <CodeBlock>{`curl -fsSL https://get.docker.com | sh
+
+# Let your sudo user run docker without sudo
+sudo usermod -aG docker $USER
+exit  # then SSH back in for group membership to take effect`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              3. Clone the repo
+            </h4>
+            <CodeBlock>{`sudo mkdir -p /opt/bananalytics
+sudo chown $USER:$USER /opt/bananalytics
+cd /opt/bananalytics
+git clone https://github.com/TableTennisCoder/bananalytics.git .`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              4. Configure env vars
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Create{" "}
+              <code className="font-mono text-xs">
+                /opt/bananalytics/server/.env
+              </code>
+              :
+            </p>
+            <CodeBlock>{`# Caddy uses this for the SSL cert hostname
+BANANA_DOMAIN=analytics.yourdomain.com
+
+# Origins allowed to call the API (your dashboard + marketing site)
+BANANA_CORS_ORIGINS=https://analytics.yourdomain.com,https://yourdomain.com
+
+BANANA_LOG_LEVEL=info`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              5. (Optional) Copy GeoIP database
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Without this, country/city features show empty data. From your
+              local machine:
+            </p>
+            <CodeBlock>{`scp ./server/geoip/GeoLite2-City.mmdb \\
+    user@your-vps-ip:/opt/bananalytics/server/geoip/`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              See <a href="#geoip" className="text-primary hover:underline">GeoIP Setup</a> for how to download the database.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              6. Build and start
+            </h4>
+            <CodeBlock>{`cd /opt/bananalytics/server
+docker compose up -d --build`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              First build takes ~3-4 minutes. Then check:
+            </p>
+            <CodeBlock>{`docker compose ps           # all 4 services should be "healthy"
+docker compose logs --tail 50
+
+# Look for:
+#   bananalytics  → "migrations: applied successfully"
+#   bananalytics  → "server starting port=8080"
+#   dashboard     → "Ready in Xms"
+#   caddy         → "certificate obtained successfully"`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              7. Claim your instance — DO THIS IMMEDIATELY
+            </h4>
+            <p className="text-sm">
+              The{" "}
+              <code className="font-mono text-xs">/setup</code> endpoint is{" "}
+              <strong>publicly reachable until the first admin is created</strong>
+              . If anyone else hits it before you, they own the instance.
+            </p>
+            <p className="text-sm">
+              Open in your browser <strong>right now</strong>:
+            </p>
+            <CodeBlock>{`https://analytics.yourdomain.com/setup`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Register your admin user. From then on,{" "}
+              <code className="font-mono text-xs">/setup</code> returns 410
+              Gone forever.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              8. Daily Postgres backup
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Add to root&apos;s crontab (
+              <code className="font-mono text-xs">sudo crontab -e</code>):
+            </p>
+            <CodeBlock>{`0 3 * * * docker exec server-postgres-1 pg_dump -U bananalytics bananalytics | gzip > /opt/backups/bananalytics-$(date +\\%F).sql.gz && find /opt/backups -name "bananalytics-*.sql.gz" -mtime +14 -delete`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Daily backup at 3 AM, keeps 14 days of history. Don&apos;t
+              forget <code className="font-mono text-xs">sudo mkdir -p /opt/backups</code>{" "}
+              first.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              How to deploy updates
+            </h4>
+            <CodeBlock>{`cd /opt/bananalytics
+git pull
+cd server
+docker compose up -d --build`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              ~30 seconds for code-only changes (cached layers), ~3 minutes for
+              dependency changes.
+            </p>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm">
+                <strong>Realistic time for the full deploy:</strong> ~20
+                minutes (mostly DNS propagation + first Docker build). The
+                whole flow is one git pull + one docker command — no manual
+                database creation, no migration scripts, no SSL certs to
+                renew. Caddy + the Go backend&apos;s auto-migrations handle
+                it all.
+              </p>
+            </div>
           </DocSection>
 
           {/* Capacity & Scaling */}
