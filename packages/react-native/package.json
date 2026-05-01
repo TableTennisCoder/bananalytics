@@ -1,6 +1,6 @@
 {
   "name": "@bananalytics/react-native",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Self-hosted, privacy-first analytics SDK for React Native and Expo apps. Funnels, retention, sessions, geography — your server, your data.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
