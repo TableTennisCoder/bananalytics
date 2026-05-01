@@ -54,7 +54,12 @@ export function validateProperties(properties: Properties): string | null {
       return `property key "${key}" exceeds ${MAX_PROPERTY_KEY_LENGTH} character limit`;
     }
 
-    const serialized = JSON.stringify(properties[key]);
+    const value = properties[key];
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    const serialized = JSON.stringify(value);
     if (serialized.length > MAX_PROPERTY_VALUE_SIZE) {
       return `property value for key "${key}" exceeds ${MAX_PROPERTY_VALUE_SIZE} byte limit: got ${serialized.length}`;
     }

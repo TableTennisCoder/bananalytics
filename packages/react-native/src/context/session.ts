@@ -90,12 +90,13 @@ export class SessionManager {
 
   /** Ends the current session. */
   endSession(): void {
-    if (this.session) {
-      this.logger.debug('Session ended', this.session.id);
-      if (this.onSessionEnd) {
-        this.onSessionEnd(this.session);
-      }
-      this.session = null;
+    if (!this.session) return;
+
+    const ended = this.session;
+    this.session = null;
+    this.logger.debug('Session ended', ended.id);
+    if (this.onSessionEnd) {
+      this.onSessionEnd(ended);
     }
   }
 

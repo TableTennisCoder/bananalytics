@@ -57,4 +57,8 @@ describe('validateProperties', () => {
     const error = validateProperties({ key: largeValue });
     expect(error).toContain('exceeds 8192 byte limit');
   });
+
+  it('skips undefined and null property values without crashing', () => {
+    expect(validateProperties({ a: undefined, b: null, c: 'ok' })).toBeNull();
+  });
 });

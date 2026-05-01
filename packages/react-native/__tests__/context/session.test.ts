@@ -105,4 +105,26 @@ describe('SessionManager', () => {
 
     expect(manager.getSessionId()).toBeNull();
   });
+
+  it('does not re-fire onSessionEnd when callback re-enters getSession', () => {
+    const storage = createMockStorage();
+    const persister = new Persister(storage, logger);
+    const manager = new SessionManager(100, persister, logger);
+
+    const onEnd = jest.fn(() => {
+      // Simulate EventBuilder.getContext() which calls getSession() during the
+      // $session_end event build. Before the fix, this re-entered endSession()
+      // because this.session wasn't cleared until after the callback returned,
+      // causing repeated "Session ended" logs for the same id.
+      manager.getSession();
+    });
+    manager.setCallbacks(jest.fn(), onEnd);
+
+    const session1 = manager.getSession();
+    session1.lastActivity = new Date(Date.now() - 200).toISOString();
+
+    manager.getSession();
+
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });

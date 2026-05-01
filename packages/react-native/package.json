@@ -1,15 +1,33 @@
 {
   "name": "@bananalytics/react-native",
   "version": "0.1.0",
-  "description": "Self-hosted analytics SDK for React Native",
+  "description": "Self-hosted, privacy-first analytics SDK for React Native and Expo apps. Funnels, retention, sessions, geography — your server, your data.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "analytics",
+    "react-native",
+    "expo",
+    "self-hosted",
+    "privacy",
+    "tracking",
+    "events",
+    "funnels",
+    "retention",
+    "mixpanel-alternative",
+    "amplitude-alternative",
+    "posthog-alternative"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "jest",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
   "peerDependencies": {
     "react": ">=16.8.0",
@@ -30,8 +48,17 @@
     "uuid": "^9.0.1"
   },
   "license": "MIT",
+  "author": "Bananalytics",
+  "homepage": "https://bananalytics.xyz",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bananalytics/bananalytics"
+    "url": "git+https://github.com/TableTennisCoder/bananalytics.git",
+    "directory": "packages/react-native"
+  },
+  "bugs": {
+    "url": "https://github.com/TableTennisCoder/bananalytics/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
