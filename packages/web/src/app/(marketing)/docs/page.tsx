@@ -23,6 +23,7 @@ import {
   Wrench,
   Gauge,
   Lock,
+  AlertTriangle,
 } from "lucide-react";
 
 type DocsPath = "cloud" | "self-host";
@@ -31,6 +32,7 @@ const cloudSidebar = [
   { id: "cloud-start", label: "Get Your Keys", icon: Key },
   { id: "ai-setup", label: "AI Setup", icon: Sparkles },
   { id: "sdk", label: "React Native SDK", icon: Smartphone },
+  { id: "troubleshooting", label: "Troubleshooting", icon: AlertTriangle },
   { id: "event-strategy", label: "Event Strategy", icon: Target },
   { id: "api", label: "API Reference", icon: Server },
   { id: "privacy", label: "Privacy", icon: Shield },
@@ -45,6 +47,7 @@ const selfHostSidebar = [
   { id: "config", label: "Configuration", icon: Key },
   { id: "ai-setup", label: "AI Setup", icon: Sparkles },
   { id: "sdk", label: "React Native SDK", icon: Smartphone },
+  { id: "troubleshooting", label: "Troubleshooting", icon: AlertTriangle },
   { id: "event-strategy", label: "Event Strategy", icon: Target },
   { id: "api", label: "API Reference", icon: Server },
   { id: "privacy", label: "Privacy", icon: Shield },
@@ -1070,15 +1073,37 @@ docker-compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\
               Copy the prompt below and paste it into Claude Code, Cursor, Copilot, or any AI coding agent. It will integrate Bananalytics into your React Native app in one run.
             </p>
 
-            <AiPromptCard>{`Integrate Bananalytics analytics into this React Native app. Bananalytics is a self-hosted, privacy-first product analytics tool. Follow these steps exactly:
+            <AiPromptCard>{`Integrate Bananalytics analytics into this React Native / Expo app. Bananalytics is a self-hosted, privacy-first product analytics tool. Follow these steps exactly:
 
 ## 1. Install dependencies
 
-npm install @bananalytics/react-native @react-native-async-storage/async-storage
+npm install @bananalytics/react-native @react-native-async-storage/async-storage react-native-get-random-values
 
-## 2. Initialize the SDK
+The "react-native-get-random-values" package is REQUIRED. Bananalytics uses uuid internally,
+which calls crypto.getRandomValues() — that API is not available in React Native without
+this polyfill. Without it, Bananalytics.init() will hard-crash the app.
 
-Create or update the analytics initialization. Add this to your app's entry point (App.tsx or _layout.tsx):
+## 2. Add the polyfill as the FIRST line of the app entry
+
+File: src/app/_layout.tsx (Expo Router) OR App.tsx (bare RN if no expo-router)
+
+The polyfill import MUST be the very first line of the file — before ALL other imports,
+including CSS resets, third-party libraries, or your own modules. Order matters: uuid is
+loaded by Bananalytics on import, so the polyfill has to register globalThis.crypto first.
+
+Example result:
+
+import "react-native-get-random-values"; // must be first — polyfills crypto.getRandomValues() for uuid
+import "@/global.css";
+import { useEffect } from "react";
+import { Bananalytics } from "@bananalytics/react-native";
+// ...rest of imports
+
+## 3. Initialize the SDK (static API only — do NOT use the Provider)
+
+Initialize Bananalytics ONCE at module scope in the entry file. Use the static
+Bananalytics.init() approach. Do NOT wrap the tree with <BananalyticsProvider> —
+it is not needed and the hook-based useBananalytics() must never be called.
 
 import { Bananalytics } from '@bananalytics/react-native';
 
@@ -1091,7 +1116,7 @@ Bananalytics.init({
   debug: false,                      // Set true during development
 });
 
-## 3. Identify users
+## 4. Identify users
 
 After the user logs in or you have a user ID, call identify:
 
@@ -1101,20 +1126,33 @@ Bananalytics.identify('USER_ID', {
   created_at: user.createdAt,
 });
 
-## 4. Track screen views
+## 5. Track screen views (static only)
 
-For every screen/page in the app, add screen tracking.
-If using React Navigation, add this to the onStateChange handler:
+For every screen/page in the app, track the screen view. Use ONLY the static call —
+do NOT import useTrackScreen from @bananalytics/react-native (that hook requires the
+Provider, which we are not using).
 
-Bananalytics.screen('ScreenName');
+If you want a hook-shaped helper, define your own in src/lib/analytics.ts:
 
-Or use the React hook:
+import { useEffect } from 'react';
+import { Bananalytics } from '@bananalytics/react-native';
 
-import { useTrackScreen } from '@bananalytics/react-native';
-// Inside your screen component:
+export function useTrackScreen(name: string, props?: Record<string, string | number | boolean>): void {
+  useEffect(() => {
+    Bananalytics.screen(name, props);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]);
+}
+
+Then call it inside each screen component:
+
 useTrackScreen('HomeScreen');
 
-## 5. Track events
+Or call the static API directly:
+
+Bananalytics.screen('HomeScreen');
+
+## 6. Track events
 
 Add event tracking for key user actions. Use snake_case event names.
 Ask me what events I want to track, or use these recommended defaults:
@@ -1133,30 +1171,20 @@ Bananalytics.track('purchase_completed', {
   currency: 'USD',
 });
 
-## 6. Wrap with Provider (optional)
-
-If you prefer React context, wrap your app:
-
-import { BananalyticsProvider } from '@bananalytics/react-native';
-
-<BananalyticsProvider config={{
-  apiKey: 'YOUR_WRITE_KEY',
-  endpoint: 'YOUR_ENDPOINT',
-}}>
-  <App />
-</BananalyticsProvider>
-
-Then use the hook in any component:
-const analytics = useBananalytics();
-analytics.track('event_name', { key: 'value' });
-
 ## Rules
+- Polyfill import MUST be the first line of the entry file
+- Use the static Bananalytics.* API only — do NOT add BananalyticsProvider
+- Do NOT import useTrackScreen or useBananalytics from @bananalytics/react-native
 - Use snake_case for all event names (e.g. purchase_completed not purchaseCompleted)
 - Keep event properties flat (no nested objects)
 - Call identify() as early as possible after login
 - Call screen() on every screen mount
 - Do NOT track sensitive data (passwords, credit card numbers, SSN)
 - The SDK handles offline queuing, batching, and retries automatically
+
+## Verify
+After the changes, the app should start with no Bananalytics errors in the console
+and no crypto.getRandomValues() crash.
 
 Before you start, ask me:
 1. What are the main user actions in this app that I want to track?
@@ -1191,7 +1219,15 @@ Before you start, ask me:
           >
             <p>Install the SDK in your React Native app.</p>
             <CodeBlock title="Install">{`npm install @bananalytics/react-native
-npm install @react-native-async-storage/async-storage`}</CodeBlock>
+npm install @react-native-async-storage/async-storage
+npm install react-native-get-random-values`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              <code className="text-primary font-mono text-xs">react-native-get-random-values</code> polyfills{" "}
+              <code className="text-primary font-mono text-xs">crypto.getRandomValues()</code> for the{" "}
+              <code className="text-primary font-mono text-xs">uuid</code> dependency. Without it,{" "}
+              <code className="text-primary font-mono text-xs">Bananalytics.init()</code> crashes on first run. See{" "}
+              <a href="#troubleshooting" className="text-primary underline underline-offset-2 hover:text-primary/80">Troubleshooting</a> for details.
+            </p>
             <CodeBlock title="Initialize" lang="typescript">{`import { Bananalytics } from '@bananalytics/react-native';
 
 Bananalytics.init({
@@ -1254,6 +1290,87 @@ function HomeScreen() {
                 </tbody>
               </table>
             </div>
+          </DocSection>
+
+          {/* Troubleshooting */}
+          <DocSection
+            icon={<AlertTriangle className="h-5 w-5" />}
+            title="Troubleshooting"
+            id="troubleshooting"
+          >
+            <p>
+              Common issues integrating Bananalytics into a React Native or Expo app, and how to fix them.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              <code className="font-mono text-[15px] text-destructive">crypto.getRandomValues() is not supported</code>
+            </h4>
+            <p>
+              Bananalytics uses <code className="text-primary font-mono text-xs">uuid</code> internally, which calls{" "}
+              <code className="text-primary font-mono text-xs">crypto.getRandomValues()</code>. That API is not available in React Native by default — without a polyfill,{" "}
+              <code className="text-primary font-mono text-xs">Bananalytics.init()</code> hard-crashes the app.
+            </p>
+
+            <h5 className="text-sm font-semibold mt-6 mb-2">1. Install the polyfill</h5>
+            <CodeBlock title="Install" lang="bash">{`npm install react-native-get-random-values`}</CodeBlock>
+
+            <h5 className="text-sm font-semibold mt-6 mb-2">2. Import it as the FIRST line of your entry file</h5>
+            <p>
+              The polyfill must run before <code className="text-primary font-mono text-xs">@bananalytics/react-native</code> is loaded — otherwise{" "}
+              <code className="text-primary font-mono text-xs">uuid</code> resolves before{" "}
+              <code className="text-primary font-mono text-xs">globalThis.crypto</code> is patched. Add it as the very first line of your app entry —{" "}
+              <code className="text-primary font-mono text-xs">src/app/_layout.tsx</code> (Expo Router) or{" "}
+              <code className="text-primary font-mono text-xs">App.tsx</code> (bare RN), before all other imports including CSS.
+            </p>
+            <CodeBlock title="src/app/_layout.tsx" lang="typescript">{`import "react-native-get-random-values"; // must be first — polyfills crypto.getRandomValues() for uuid
+import "@/global.css";
+import { useEffect } from "react";
+import { Bananalytics } from "@bananalytics/react-native";
+
+Bananalytics.init({
+  apiKey: 'rk_...',
+  endpoint: 'https://your-server.com',
+});`}</CodeBlock>
+
+            <h4 className="text-base font-semibold mt-10 mb-3">
+              <code className="font-mono text-[15px] text-destructive">useTrackScreen / useBananalytics throws</code>
+            </h4>
+            <p>
+              The hook-based <code className="text-primary font-mono text-xs">useTrackScreen()</code> and{" "}
+              <code className="text-primary font-mono text-xs">useBananalytics()</code> exports require{" "}
+              <code className="text-primary font-mono text-xs">&lt;BananalyticsProvider&gt;</code> wrapping the tree. If you use the static{" "}
+              <code className="text-primary font-mono text-xs">Bananalytics.init()</code> approach (recommended), do <strong>not</strong> import these hooks — calling them without the provider throws.
+            </p>
+            <p className="mt-3">
+              Instead, define a tiny local hook that wraps <code className="text-primary font-mono text-xs">Bananalytics.screen()</code>:
+            </p>
+            <CodeBlock title="src/lib/analytics.ts" lang="typescript">{`import { useEffect } from "react";
+import { Bananalytics } from "@bananalytics/react-native";
+
+export function useTrackScreen(
+  name: string,
+  props?: Record<string, string | number | boolean>,
+): void {
+  useEffect(() => {
+    Bananalytics.screen(name, props);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]);
+}`}</CodeBlock>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Then use it in any screen: <code className="text-primary font-mono text-xs">useTrackScreen(&apos;HomeScreen&apos;)</code>. No provider required.
+            </p>
+
+            <h4 className="text-base font-semibold mt-10 mb-3">Static API vs Provider — pick one</h4>
+            <ul className="space-y-2.5">
+              <li className="flex items-start gap-2 text-sm">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Static (recommended for Expo Router):</strong> call <code className="text-primary font-mono text-xs">Bananalytics.init()</code> once at module scope. Use <code className="text-primary font-mono text-xs">Bananalytics.track / screen / identify</code> directly. No provider, no hooks from the SDK.</span>
+              </li>
+              <li className="flex items-start gap-2 text-sm">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span><strong>Provider:</strong> wrap your tree with <code className="text-primary font-mono text-xs">&lt;BananalyticsProvider&gt;</code> and use <code className="text-primary font-mono text-xs">useBananalytics()</code> / <code className="text-primary font-mono text-xs">useTrackScreen()</code>. Mixing both styles in the same app is what causes most setup bugs — pick one and stick with it.</span>
+              </li>
+            </ul>
           </DocSection>
 
           {/* Event Strategy */}
