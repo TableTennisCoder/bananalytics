@@ -832,6 +832,48 @@ docker compose up -d --build`}</CodeBlock>
               </li>
             </ul>
 
+            <h4 className="text-base font-semibold mt-8 mb-3">Letting old raw events expire</h4>
+            <p>
+              Disk is the thing that runs out, and you can decide how much of it
+              you spend. Set{" "}
+              <code className="font-mono text-xs">BANANA_RAW_RETENTION_MONTHS</code>{" "}
+              and whole monthly partitions older than that window are dropped
+              automatically &mdash; a table drop, not a delete, so it finishes in
+              milliseconds and leaves nothing to vacuum.
+            </p>
+            <p className="text-sm">
+              The aggregates are not touched, so this is not simply throwing data
+              away:
+            </p>
+            <ul className="space-y-1.5 text-sm pl-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>
+                  <strong>Keep their full history:</strong> overview, events over
+                  time, top events, breakdowns, geography, revenue, DAU/WAU/MAU
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>
+                  <strong>Only reach back as far as the window:</strong> retention
+                  cohorts, funnels, sessions, the event explorer
+                </span>
+              </li>
+            </ul>
+            <p className="text-sm">
+              Six months keeps day-30 cohorts and quarterly funnels comfortably
+              intact while cutting two years of storage by about a third. The
+              default is <code className="font-mono text-xs">0</code> &mdash; keep
+              everything forever &mdash; because software running on your own
+              server should not delete your data because of a setting you never
+              chose. The minimum is 2 months, and nothing is ever dropped before
+              the rollups covering it have been built.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              There is no undo. Keep your backups.
+            </p>
+
             <h4 className="text-base font-semibold mt-8 mb-3">Recommended specs by app stage</h4>
 
             <div className="overflow-x-auto rounded-lg border border-border">
@@ -1038,6 +1080,8 @@ docker compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\
                   <ConfigRow option="BANANA_RATE_LIMIT_RPM" default="1000" desc="Requests/min per API key" />
                   <ConfigRow option="BANANA_IP_RATE_LIMIT_RPM" default="300" desc="Requests/min per IP" />
                   <ConfigRow option="BANANA_DB_MAX_CONNS" default="25" desc="Max DB connections" />
+                  <ConfigRow option="BANANA_ROLLUP_INTERVAL" default="60s" desc="How often aggregates rebuild" />
+                  <ConfigRow option="BANANA_RAW_RETENTION_MONTHS" default="0" desc="Months of raw events to keep; 0 keeps them forever" />
                   <ConfigRow option="BANANA_GEOIP_DB" default="" desc="Path to GeoLite2-City.mmdb" />
                   <ConfigRow option="MAXMIND_LICENSE_KEY" default="" desc="Used by scripts/download-geoip.sh" />
                   <ConfigRow option="BANANA_BACKUP_DIR" default="./backups" desc="Where scripts/backup.sh writes dumps" />

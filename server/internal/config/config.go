@@ -10,11 +10,11 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Port          int
-	DBDSN         string
-	LogLevel      string
-	RateLimitRPM  int
-	CORSOrigins   string
+	Port         int
+	DBDSN        string
+	LogLevel     string
+	RateLimitRPM int
+	CORSOrigins  string
 
 	// Connection pool settings
 	DBMaxConns        int32
@@ -35,6 +35,16 @@ type Config struct {
 	// dashboard number can be: an ingested event shows up in the aggregates
 	// within one interval. Real-time views read raw events and are unaffected.
 	RollupInterval time.Duration
+
+	// How many months of raw events to keep. Zero means keep them forever,
+	// which is the default: a self-hosted install should never delete its
+	// owner's data because of a setting they did not choose.
+	//
+	// When set, whole monthly partitions older than the window are dropped once
+	// the rollups covering them are built. Aggregate views keep their full
+	// history; cohorts, funnels, sessions and the event explorer only reach as
+	// far back as the raw window.
+	RawRetentionMonths int
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -114,6 +124,19 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("invalid BANANA_PROJECT_CREATE_RPM %q: %w", v, err)
 		}
 		cfg.ProjectCreateRPM = n
+	}
+
+	if v := os.Getenv("BANANA_RAW_RETENTION_MONTHS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid BANANA_RAW_RETENTION_MONTHS %q: %w", v, err)
+		}
+		if n < 0 {
+			return nil, fmt.Errorf("invalid BANANA_RAW_RETENTION_MONTHS %q: must not be negative", v)
+		}
+		// The lower bound belongs to the partitions package, which owns the
+		// rule; it is checked at startup before the worker is allowed to run.
+		cfg.RawRetentionMonths = n
 	}
 
 	if v := os.Getenv("BANANA_ROLLUP_INTERVAL"); v != "" {

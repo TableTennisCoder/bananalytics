@@ -89,6 +89,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// A bad retention setting should stop the server, not be discovered later by
+	// a worker that silently declined to run.
+	if err := partitions.ValidateRetention(cfg.RawRetentionMonths); err != nil {
+		logger.Error("invalid BANANA_RAW_RETENTION_MONTHS", "error", err)
+		os.Exit(1)
+	}
+
 	// Auto-create partitions (3 months ahead, checks daily)
 	partitionMgr := partitions.NewManager(pool, logger)
 	partitionMgr.StartAutoCreation(ctx)
@@ -102,6 +109,11 @@ func main() {
 	rollup := postgres.NewRollup(pool, logger)
 	rollup.Start(rollupCtx, cfg.RollupInterval)
 	logger.Info("rollup refresh started", "interval", cfg.RollupInterval)
+
+	// Started after the rollups deliberately: Start's first pass is synchronous,
+	// so by the time retention looks, the aggregates that let it drop raw data
+	// safely have been built. It re-checks that itself on every run regardless.
+	partitionMgr.StartRetention(rollupCtx, cfg.RawRetentionMonths)
 
 	// Initialize stores
 	eventStore := postgres.NewEventStore(pool)
