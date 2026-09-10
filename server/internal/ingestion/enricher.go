@@ -34,6 +34,12 @@ func (e *Enricher) Enrich(event *domain.Event, projectID string, clientIP string
 	if e.geo != nil && event.Geo == nil {
 		event.Geo = e.geo.Lookup(clientIP)
 	}
+
+	// Revenue is promoted out of the properties blob into its own column so it
+	// can be summed and broken down like any other metric.
+	if event.Revenue == nil {
+		event.Revenue, event.Currency = extractRevenue(event.Properties)
+	}
 }
 
 func extractSessionID(contextJSON json.RawMessage) string {

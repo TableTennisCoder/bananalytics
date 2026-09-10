@@ -74,6 +74,15 @@ func (h *Handler) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Identity links are best-effort: the events are already stored, so a failure
+	// here must not fail the request. Losing a link only means a person's
+	// pre-login events stay attributed to their device until the next identify.
+	if links := identityLinks(valid, project.ID); len(links) > 0 {
+		if err := h.events.LinkIdentities(r.Context(), links); err != nil {
+			h.logger.Error("failed to link identities", "error", err, "project_id", project.ID)
+		}
+	}
+
 	resp := domain.IngestResponse{
 		Success:  true,
 		Accepted: accepted,
@@ -84,6 +93,34 @@ func (h *Handler) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// identityLinks collects the anonymous-to-user mappings a batch reveals.
+//
+// Any event carrying a user ID proves that device belongs to that user, not just
+// explicit identify calls — an app that sets the user ID at startup would
+// otherwise never link its pre-login history.
+func identityLinks(events []domain.Event, projectID string) []storage.IdentityLink {
+	seen := make(map[string]bool)
+	var links []storage.IdentityLink
+
+	for _, e := range events {
+		if e.UserID == nil || *e.UserID == "" || e.AnonymousID == "" {
+			continue
+		}
+		key := e.AnonymousID + "\x00" + *e.UserID
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		links = append(links, storage.IdentityLink{
+			ProjectID:   projectID,
+			AnonymousID: e.AnonymousID,
+			UserID:      *e.UserID,
+		})
+	}
+	return links
 }
 
 func extractClientIP(r *http.Request) string {

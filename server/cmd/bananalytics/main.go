@@ -93,6 +93,16 @@ func main() {
 	partitionMgr := partitions.NewManager(pool, logger)
 	partitionMgr.StartAutoCreation(ctx)
 
+	// Keep the daily rollups current. Dashboard queries read these instead of
+	// scanning the raw event stream, so this is what keeps response times flat
+	// as the event count grows. The first pass backfills any history that has
+	// not been aggregated yet.
+	rollupCtx, stopRollups := context.WithCancel(ctx)
+	defer stopRollups()
+	rollup := postgres.NewRollup(pool, logger)
+	rollup.Start(rollupCtx, cfg.RollupInterval)
+	logger.Info("rollup refresh started", "interval", cfg.RollupInterval)
+
 	// Initialize stores
 	eventStore := postgres.NewEventStore(pool)
 	projectStore := postgres.NewProjectStore(pool)

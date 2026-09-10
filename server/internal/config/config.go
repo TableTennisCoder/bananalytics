@@ -30,6 +30,11 @@ type Config struct {
 
 	// GeoIP database path (MaxMind GeoLite2-City.mmdb)
 	GeoIPDBPath string
+
+	// How often the daily rollups are rebuilt. This is what bounds how stale a
+	// dashboard number can be: an ingested event shows up in the aggregates
+	// within one interval. Real-time views read raw events and are unaffected.
+	RollupInterval time.Duration
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -45,6 +50,7 @@ func Load() (*Config, error) {
 		DBMaxConnIdleTime: 5 * time.Minute,
 		IPRateLimitRPM:    300,
 		ProjectCreateRPM:  5, // very strict — 5 projects per minute per IP
+		RollupInterval:    60 * time.Second,
 	}
 
 	if v := os.Getenv("BANANA_PORT"); v != "" {
@@ -108,6 +114,17 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("invalid BANANA_PROJECT_CREATE_RPM %q: %w", v, err)
 		}
 		cfg.ProjectCreateRPM = n
+	}
+
+	if v := os.Getenv("BANANA_ROLLUP_INTERVAL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid BANANA_ROLLUP_INTERVAL %q: %w", v, err)
+		}
+		if d < time.Second {
+			return nil, fmt.Errorf("invalid BANANA_ROLLUP_INTERVAL %q: must be at least 1s", v)
+		}
+		cfg.RollupInterval = d
 	}
 
 	return cfg, nil

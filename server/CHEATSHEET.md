@@ -4,6 +4,9 @@ All commands run from your `bananalytics/server` directory.
 
 ## Daily workflow
 
+Everything reads `.env` — copy `.env.example` once and fill in the two required
+values, otherwise compose stops with a message telling you which one is missing.
+
 ```powershell
 # Start everything (postgres + Go backend)
 docker-compose up -d
@@ -45,11 +48,30 @@ docker-compose build --no-cache bananalytics # rebuild from scratch ignoring cac
 
 ## Direct database access
 
+Postgres is not published to the host in the production config, so go through
+the container:
+
 ```powershell
-docker exec -it server-postgres-1 psql -U bananalytics -d bananalytics
+docker-compose exec postgres psql -U bananalytics -d bananalytics
 ```
 
 Inside psql: `\dt` lists tables, `\q` quits.
+
+To reach it from a GUI client on port 5432, start with the dev overlay:
+
+```powershell
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+## Backups
+
+```powershell
+.\scriptsackup.sh          # write a dump to ./backups
+.\scriptsestore.sh <file>  # replace the database with a dump
+```
+
+Schedule `backup.sh` nightly with cron on the host — see README.md. Nothing
+backs up automatically.
 
 ## Frontend
 

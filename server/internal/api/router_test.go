@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +33,11 @@ func hashKeyForTest(key string) string {
 // --- Mock Repositories ---
 
 type mockEventRepo struct {
-	events []domain.Event
+	events           []domain.Event
+	lastBreakdown    *storage.BreakdownParams
+	lastFunnel       *storage.FunnelParams
+	lastRevenue      *storage.RevenueParams
+	linkedIdentities []storage.IdentityLink
 }
 
 func (m *mockEventRepo) InsertBatch(_ context.Context, events []domain.Event) (int, error) {
@@ -53,12 +59,13 @@ func (m *mockEventRepo) QueryEvents(_ context.Context, filter storage.EventFilte
 	return result, nil
 }
 
-func (m *mockEventRepo) QueryFunnel(_ context.Context, _ string, steps []string, _, _ time.Time) ([]storage.FunnelStep, error) {
-	result := make([]storage.FunnelStep, len(steps))
-	for i, s := range steps {
-		result[i] = storage.FunnelStep{Step: s, Count: 100 - i*20}
+func (m *mockEventRepo) QueryFunnel(_ context.Context, params storage.FunnelParams) ([]storage.FunnelStep, error) {
+	m.lastFunnel = &params
+	counts := make([]int, len(params.Steps))
+	for i := range params.Steps {
+		counts[i] = 100 - i*20
 	}
-	return result, nil
+	return storage.NewFunnelResult(params.Steps, counts, make([]*float64, len(params.Steps))), nil
 }
 
 func (m *mockEventRepo) QuerySessions(_ context.Context, _, userID string) ([]storage.Session, error) {
@@ -74,20 +81,65 @@ func (m *mockEventRepo) QueryRetention(_ context.Context, _ string, _, _ time.Ti
 	}, nil
 }
 
-func (m *mockEventRepo) QueryStats(_ context.Context, _ string, _, _ time.Time) (*storage.StatsOverview, error) {
+func (m *mockEventRepo) QueryStats(_ context.Context, _ storage.QueryParams) (*storage.StatsOverview, error) {
 	return &storage.StatsOverview{TotalEvents: 100, UniqueUsers: 10, ActiveSessions: 3, EventsPerMinute: 5.0, TopCountry: "Germany"}, nil
 }
-func (m *mockEventRepo) QueryTimeseries(_ context.Context, _ string, _, _ time.Time, _ string, _ string) ([]storage.TimeseriesPoint, error) {
-	return []storage.TimeseriesPoint{{Bucket: "2026-04-14T10:00:00Z", Count: 42}}, nil
+func (m *mockEventRepo) QueryTimeseries(_ context.Context, _ storage.QueryParams, _ string) ([]storage.TimeseriesPoint, error) {
+	return []storage.TimeseriesPoint{{Bucket: "2026-04-14T10:00:00Z", Count: 42, UniqueUsers: 7}}, nil
 }
-func (m *mockEventRepo) QueryTopEvents(_ context.Context, _ string, _, _ time.Time, _ int) ([]storage.TopEvent, error) {
-	return []storage.TopEvent{{Event: "button_clicked", Count: 100}}, nil
+func (m *mockEventRepo) QueryTopEvents(_ context.Context, _ storage.QueryParams, _ int) ([]storage.TopEvent, error) {
+	return []storage.TopEvent{{Event: "button_clicked", Count: 100, UniqueUsers: 25}}, nil
 }
 func (m *mockEventRepo) QueryEventNames(_ context.Context, _ string) ([]string, error) {
 	return []string{"button_clicked", "$screen"}, nil
 }
-func (m *mockEventRepo) QueryGeo(_ context.Context, _ string, _, _ time.Time, _ string) ([]storage.GeoData, error) {
+func (m *mockEventRepo) QueryGeo(_ context.Context, _ storage.QueryParams, _ string) ([]storage.GeoData, error) {
 	return []storage.GeoData{{Country: "Germany", CountryCode: "DE", Count: 50, UniqueUsers: 10, Lat: 52.52, Lng: 13.40}}, nil
+}
+
+// lastBreakdown records what the handler asked for so tests can assert on it.
+func (m *mockEventRepo) QueryBreakdown(_ context.Context, params storage.BreakdownParams) ([]storage.BreakdownBucket, error) {
+	m.lastBreakdown = &params
+	return []storage.BreakdownBucket{
+		{Value: "ios", Count: 700, UniqueUsers: 120},
+		{Value: "android", Count: 300, UniqueUsers: 80},
+	}, nil
+}
+
+func (m *mockEventRepo) QueryPropertyKeys(_ context.Context, _ string, _, _ time.Time) ([]string, error) {
+	return []string{"plan", "source"}, nil
+}
+
+func (m *mockEventRepo) QueryActiveUsers(_ context.Context, _ storage.QueryParams) ([]storage.ActiveUsersPoint, error) {
+	return []storage.ActiveUsersPoint{
+		{Bucket: "2026-03-01", DAU: 120, WAU: 480, MAU: 1500, Stickiness: 8},
+		{Bucket: "2026-03-02", DAU: 135, WAU: 495, MAU: 1520, Stickiness: 8.9},
+	}, nil
+}
+
+func (m *mockEventRepo) LinkIdentities(_ context.Context, links []storage.IdentityLink) error {
+	m.linkedIdentities = append(m.linkedIdentities, links...)
+	return nil
+}
+
+func (m *mockEventRepo) QueryRevenue(_ context.Context, params storage.RevenueParams) (*storage.RevenueSummary, error) {
+	m.lastRevenue = &params
+	return &storage.RevenueSummary{
+		Currency:            "EUR",
+		AvailableCurrencies: []string{"EUR", "USD"},
+		TotalRevenue:        1250.50,
+		Transactions:        84,
+		PayingUsers:         61,
+		ActiveUsers:         1200,
+		ARPU:                1.04,
+		ARPPU:               20.50,
+		AverageOrderValue:   14.89,
+		PayingShare:         5.08,
+		Timeseries: []storage.RevenuePoint{
+			{Bucket: "2026-03-01", Revenue: 620.25, Transactions: 41, PayingUsers: 30},
+			{Bucket: "2026-03-02", Revenue: 630.25, Transactions: 43, PayingUsers: 31},
+		},
+	}, nil
 }
 func (m *mockEventRepo) QueryLive(_ context.Context, _ string) (*storage.LiveData, error) {
 	return &storage.LiveData{ActiveUsers: 5, EventsLastMinute: 12, RecentEvents: nil}, nil
@@ -667,5 +719,430 @@ func TestRateLimiting(t *testing.T) {
 
 	if rec.Code != http.StatusTooManyRequests {
 		t.Errorf("second request: expected 429, got %d", rec.Code)
+	}
+}
+
+func TestQueryFunnelRejectsSingleStep(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/funnel?steps=signup_start", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("a funnel needs at least 2 steps: expected 400, got %d", rec.Code)
+	}
+}
+
+func TestQueryFunnelRejectsTooManySteps(t *testing.T) {
+	ts := setupTestServer()
+
+	steps := make([]string, storage.MaxFunnelSteps+1)
+	for i := range steps {
+		steps[i] = fmt.Sprintf("step_%d", i)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/query/funnel?steps="+strings.Join(steps, ","), nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 above the step cap, got %d", rec.Code)
+	}
+}
+
+func TestQueryFunnelWindowParameter(t *testing.T) {
+	ts := setupTestServer()
+
+	tests := []struct {
+		window   string
+		wantCode int
+		wantSecs float64
+	}{
+		{"", http.StatusOK, 7 * 24 * 3600},
+		{"24h", http.StatusOK, 24 * 3600},
+		{"30m", http.StatusOK, 1800},
+		{"2w", http.StatusOK, 14 * 24 * 3600},
+		{"none", http.StatusOK, 0},
+		{"365d", http.StatusBadRequest, 0},
+		{"soon", http.StatusBadRequest, 0},
+		{"-5d", http.StatusBadRequest, 0},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest("GET", "/v1/query/funnel?steps=a,b&window="+tt.window, nil)
+		req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+		rec := httptest.NewRecorder()
+		ts.handler.ServeHTTP(rec, req)
+
+		if rec.Code != tt.wantCode {
+			t.Errorf("window=%q: expected %d, got %d: %s", tt.window, tt.wantCode, rec.Code, rec.Body.String())
+			continue
+		}
+		if tt.wantCode != http.StatusOK {
+			continue
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+			t.Fatalf("window=%q: %v", tt.window, err)
+		}
+		if got, _ := result["window_seconds"].(float64); got != tt.wantSecs {
+			t.Errorf("window=%q: expected %.0f seconds, got %.0f", tt.window, tt.wantSecs, got)
+		}
+	}
+}
+
+func TestQueryFunnelNeverGrowsBetweenSteps(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/funnel?steps=a,b,c", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	var result struct {
+		Funnel []storage.FunnelStep `json:"funnel"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode funnel: %v", err)
+	}
+	if len(result.Funnel) != 3 {
+		t.Fatalf("expected 3 steps, got %d", len(result.Funnel))
+	}
+
+	for i, step := range result.Funnel {
+		if i > 0 && step.Count > result.Funnel[i-1].Count {
+			t.Errorf("step %d reports more people (%d) than step %d (%d)",
+				i+1, step.Count, i, result.Funnel[i-1].Count)
+		}
+		if step.ConversionRate > 100 {
+			t.Errorf("step %d: conversion above 100%%: %.1f", i+1, step.ConversionRate)
+		}
+	}
+}
+
+func TestQueryBreakdownEndpoint(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/breakdown?key=platform", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result struct {
+		Key       string                    `json:"key"`
+		Breakdown []storage.BreakdownBucket `json:"breakdown"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode breakdown: %v", err)
+	}
+	if result.Key != "platform" {
+		t.Errorf("expected the dimension echoed back, got %q", result.Key)
+	}
+	if len(result.Breakdown) != 2 {
+		t.Errorf("expected 2 buckets, got %d", len(result.Breakdown))
+	}
+}
+
+func TestQueryBreakdownRejectsUnknownDimension(t *testing.T) {
+	ts := setupTestServer()
+
+	for _, key := range []string{"", "nonsense", "users.password", "properties.a' OR '1'='1"} {
+		req := httptest.NewRequest("GET", "/v1/query/breakdown?key="+url.QueryEscape(key), nil)
+		req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+		rec := httptest.NewRecorder()
+		ts.handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("key=%q: expected 400, got %d", key, rec.Code)
+		}
+	}
+}
+
+func TestQueryDimensionsEndpoint(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/dimensions", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result struct {
+		Dimensions []storage.Dimension `json:"dimensions"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode dimensions: %v", err)
+	}
+
+	keys := map[string]bool{}
+	for _, dim := range result.Dimensions {
+		keys[dim.Key] = true
+	}
+	// Built-in shorthands plus the custom properties the mock reports in use.
+	for _, want := range []string{"platform", "country", "app_version", "properties.plan", "properties.source"} {
+		if !keys[want] {
+			t.Errorf("expected dimension %q to be offered", want)
+		}
+	}
+}
+
+func TestQueryFiltersReachTheRepository(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/breakdown?key=country&filter=platform:ios&filter=properties.plan:pro", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	got := ts.eventRepo.lastBreakdown
+	if got == nil {
+		t.Fatal("expected the breakdown query to reach the repository")
+	}
+	if len(got.Filters) != 2 {
+		t.Fatalf("expected 2 filters to be passed through, got %d", len(got.Filters))
+	}
+	if got.Filters[0].Dimension.Key != "platform" || got.Filters[0].Value != "ios" {
+		t.Errorf("unexpected first filter: %+v", got.Filters[0])
+	}
+	if got.Filters[1].Dimension.Column != "properties" || got.Filters[1].Value != "pro" {
+		t.Errorf("unexpected second filter: %+v", got.Filters[1])
+	}
+}
+
+func TestQueryRejectsInvalidFilter(t *testing.T) {
+	ts := setupTestServer()
+
+	for _, filter := range []string{"platform", "nonsense:value", "users.password:x"} {
+		req := httptest.NewRequest("GET", "/v1/query/stats?filter="+url.QueryEscape(filter), nil)
+		req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+		rec := httptest.NewRecorder()
+		ts.handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("filter=%q: expected 400, got %d", filter, rec.Code)
+		}
+	}
+}
+
+func TestQueryFunnelBreakdownReturnsSegments(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/funnel?steps=a,b&breakdown=platform", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result struct {
+		Funnel    []storage.FunnelStep    `json:"funnel"`
+		Breakdown string                  `json:"breakdown"`
+		Segments  []storage.FunnelSegment `json:"segments"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode funnel: %v", err)
+	}
+
+	if result.Breakdown != "platform" {
+		t.Errorf("expected the breakdown echoed back, got %q", result.Breakdown)
+	}
+	if len(result.Segments) != 2 {
+		t.Fatalf("expected one segment per platform value, got %d", len(result.Segments))
+	}
+	if result.Segments[0].Value != "ios" {
+		t.Errorf("expected the largest segment first, got %q", result.Segments[0].Value)
+	}
+	for _, segment := range result.Segments {
+		if len(segment.Steps) != 2 {
+			t.Errorf("segment %q: expected 2 steps, got %d", segment.Value, len(segment.Steps))
+		}
+	}
+	// The overall funnel is still returned alongside the segments.
+	if len(result.Funnel) != 2 {
+		t.Errorf("expected the overall funnel too, got %d steps", len(result.Funnel))
+	}
+}
+
+func TestQueryFunnelSegmentCarriesItsFilter(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/funnel?steps=a,b&breakdown=platform", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	// The last funnel query is the unsegmented one, so it must carry no filter;
+	// the segment queries before it each added exactly one.
+	if got := ts.eventRepo.lastFunnel; got == nil || len(got.Filters) != 0 {
+		t.Errorf("expected the overall funnel to run unfiltered, got %+v", got)
+	}
+}
+
+func TestQueryRevenueEndpoint(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/revenue", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var summary storage.RevenueSummary
+	if err := json.Unmarshal(rec.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("decode revenue: %v", err)
+	}
+	if summary.Currency != "EUR" {
+		t.Errorf("expected the currency to be reported, got %q", summary.Currency)
+	}
+	if summary.TotalRevenue != 1250.50 {
+		t.Errorf("expected the total to survive the round trip, got %v", summary.TotalRevenue)
+	}
+	if len(summary.Timeseries) != 2 {
+		t.Errorf("expected 2 timeseries points, got %d", len(summary.Timeseries))
+	}
+	if len(summary.AvailableCurrencies) != 2 {
+		t.Errorf("expected both currencies to be listed, got %v", summary.AvailableCurrencies)
+	}
+}
+
+func TestQueryRevenueCurrencyParameter(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/revenue?currency=usd", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := ts.eventRepo.lastRevenue; got == nil || got.Currency != "USD" {
+		t.Errorf("expected the currency to be normalised to USD, got %+v", got)
+	}
+}
+
+func TestQueryRevenueRejectsBadCurrency(t *testing.T) {
+	ts := setupTestServer()
+
+	for _, currency := range []string{"EUROS", "E", "12", "€"} {
+		req := httptest.NewRequest("GET", "/v1/query/revenue?currency="+url.QueryEscape(currency), nil)
+		req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+		rec := httptest.NewRecorder()
+		ts.handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("currency=%q: expected 400, got %d", currency, rec.Code)
+		}
+	}
+}
+
+func TestQueryRevenueRejectsBadInterval(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/revenue?interval=fortnight", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for an unsupported interval, got %d", rec.Code)
+	}
+}
+
+func TestQueryRevenuePassesFilters(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/revenue?filter=platform:ios", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	got := ts.eventRepo.lastRevenue
+	if got == nil || len(got.Filters) != 1 {
+		t.Fatalf("expected the filter to reach the repository, got %+v", got)
+	}
+	if got.Filters[0].Dimension.Key != "platform" || got.Filters[0].Value != "ios" {
+		t.Errorf("unexpected filter: %+v", got.Filters[0])
+	}
+}
+
+func TestQueryActiveUsersEndpoint(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/active-users", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result struct {
+		ActiveUsers []storage.ActiveUsersPoint `json:"active_users"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode active users: %v", err)
+	}
+	if len(result.ActiveUsers) != 2 {
+		t.Fatalf("expected 2 points, got %d", len(result.ActiveUsers))
+	}
+	if result.ActiveUsers[0].DAU != 120 || result.ActiveUsers[0].MAU != 1500 {
+		t.Errorf("unexpected first point: %+v", result.ActiveUsers[0])
+	}
+}
+
+func TestQueryActiveUsersRejectsHugeRange(t *testing.T) {
+	ts := setupTestServer()
+
+	url := fmt.Sprintf("/v1/query/active-users?from=%s&to=%s",
+		time.Now().AddDate(-3, 0, 0).UTC().Format(time.RFC3339),
+		time.Now().UTC().Format(time.RFC3339),
+	)
+	req := httptest.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for a multi-year range, got %d", rec.Code)
 	}
 }

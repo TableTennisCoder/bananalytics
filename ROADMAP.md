@@ -2,18 +2,31 @@
 
 **Current Status:** Self-hosted MVP works end-to-end. First-run user setup, login, project creation, dashboard with KPIs/funnels/retention/geo/sessions/live view, React Native SDK with offline-first batching, all behind Caddy HTTPS.
 
-**Test counts:** Go 56 tests + SDK 107 tests = **163 tests passing**.
+Since then the analysis layer moved from "what happened" to "where is the money":
+ordered funnels with conversion windows, property breakdowns and filters on every
+query, identity merging with DAU/WAU/MAU, and revenue as a first-class metric.
+See [PLAN.md](PLAN.md) for what changed and why.
+
+**Test counts:** Go 98 unit + 42 PostgreSQL integration + SDK 119 = **259 tests passing**.
 
 ---
 
 ## ✅ Already Built (Production Quality)
 
+### Analysis Layer
+- [x] **Ordered funnels** — strict step sequence + conversion window measured from step 1 (Mixpanel/Amplitude semantics), per-step drop-off and median time to convert
+- [x] **Property breakdowns & filters** — `filter=key:value` on every query, `/v1/query/breakdown` ranks any dimension, funnels split into per-segment comparisons. Dimension keys are validated and bound as parameters, never interpolated into SQL
+- [x] **Identity merge** — `identities` table + `events_resolved` view; a person who browses anonymously then signs in counts once, across devices (Migration 007)
+- [x] **DAU/WAU/MAU** — `/v1/query/active-users` with rolling windows and stickiness, counting people rather than event volume
+- [x] **Revenue** — `revenue`/`currency` columns (Migration 008), extracted at ingest from any event's properties; `/v1/query/revenue` reports totals, paying users, ARPU, ARPPU and AOV in a single currency, never summed across currencies
+
 ### Backend (Go)
 - [x] **Event ingestion** — `POST /v1/ingest`, batching, deduplication on `(project_id, message_id, created_at)`, 5MB body limit, 500 events per batch
-- [x] **Query API** — events, stats, timeseries, top events, event names, funnel, sessions, retention, geo, live (10 endpoints)
+- [x] **Query API** — events, stats, timeseries, top events, event names, funnel, sessions, retention, geo, live, breakdown, dimensions, active-users, revenue (14 endpoints)
 - [x] **API Key Hashing** — SHA-256 + 8-char prefix lookup, constant-time comparison (Migration 003)
 - [x] **HTTPS via Caddy** — Auto Let's Encrypt, security headers (HSTS, X-Frame-Options, etc.)
-- [x] **CORS configurable** — `BANANA_CORS_ORIGINS`, warns on `*` in production
+- [x] **CORS configurable** — `BANANA_CORS_ORIGINS` is required in the production compose file (no silent `*` fallback), and the server warns when it is wide open
+- [x] **Postgres not exposed** — the production compose publishes no host port for the database; only Caddy binds 80/443. Credentials come from `.env`, with no default password
 - [x] **JSON depth check** — Max 10 nesting levels, max 32KB context size
 - [x] **Per-IP rate limiting** — `BANANA_IP_RATE_LIMIT_RPM` (default 300)
 - [x] **Per-API-key rate limiting** — `BANANA_RATE_LIMIT_RPM` (default 1000) on ingest
@@ -60,7 +73,8 @@
 
 ### CI/CD & Tests
 - [x] **GitHub Actions** — Go build/test/vet, SDK typecheck/test/build, Docker build
-- [x] **107 SDK unit tests** + **56 Go unit tests** = **163 tests passing**
+- [x] **119 SDK unit tests** + **98 Go unit tests** = **217 tests passing**
+- [x] **42 PostgreSQL integration tests** — run the real queries against a real database using the real migrations, behind the `integration` build tag (see [PLAN.md](PLAN.md) for how to run them)
 
 ---
 
@@ -100,12 +114,18 @@
 
 ## 🟡 Should-Have Before Public Launch
 
-### 7. Database backups
-- **Choices:**
-  - Use managed Postgres (Hetzner, Supabase, Neon) — automatic backups
-  - OR `pg_dump` cronjob with S3/B2 upload
-  - OR document `pg_basebackup` for self-hosters
-- **Effort:** Pick one, ~1-2 hours
+### ~~7. Database backups~~ ✅ DONE
+- **Status:** `scripts/backup.sh` dumps the database, prunes old files and can push
+  off-site via any rclone remote; `scripts/restore.sh` recreates the database and
+  loads a dump. Both refuse to run against a stopped container, and a dump that
+  fails or comes back too small is discarded rather than kept.
+- **Verified end to end:** seeded 250 events with revenue and an identity mapping,
+  dumped, dropped the whole database, restored — event count, revenue sum,
+  identity merge, all constraints, 24 partitions and the migration version came
+  back identical.
+- **Not automatic:** the operator schedules `backup.sh` via cron. README.md has
+  the crontab line.
+- **Files:** `server/scripts/backup.sh`, `server/scripts/restore.sh`, README.md
 
 ### 8. Error monitoring (Sentry or GlitchTip)
 - Right now production errors are only visible by reading server logs. Need automatic error tracking with stack traces.
@@ -168,7 +188,8 @@
 - [ ] **Old partition archival** — Move >12-month data to S3 cold storage
 
 ### Quality
-- [ ] **Postgres integration tests** — Testcontainers, real DB in CI
+- [x] **Postgres integration tests** — 42 tests behind the `integration` tag, running the real migrations against a real database
+- [ ] **Run the integration tests in CI** — they exist but CI does not start a Postgres service container yet
 - [ ] **Load tests (k6 or vegeta)** — Document max events/sec capacity
 - [ ] **`golangci-lint` in CI** — Code quality enforcement
 - [ ] **ESLint for SDK + web** — Consistent style
@@ -186,7 +207,8 @@
 - [ ] **Webhooks** — Forward events to external services (Zapier, Slack, etc.)
 - [ ] **Data export** — CSV/JSON export for selected event ranges
 - [ ] **Event replay** — Reprocess events after schema changes
-- [ ] **User segmentation** — Group users by traits
+- [ ] **Saved segments** — persist a filter combination and reuse it (filtering itself is done, saving is not)
+- [ ] **Revenue webhooks** — accept purchase events from RevenueCat/Stripe directly, instead of relying on the app to report them
 - [ ] **API versioning (v2)** — Plan v2 namespace before breaking v1
 - [ ] **React Web SDK** — Same API for web apps (without RN deps)
 - [ ] **Other SDKs** — Flutter, iOS native (Swift), Android native (Kotlin)

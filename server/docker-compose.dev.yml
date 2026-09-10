@@ -1,12 +1,28 @@
-# Development override: exposes Go server directly, no Caddy/HTTPS
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Development overrides: direct ports, verbose logs, no HTTPS.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# The production file deliberately keeps Postgres off the host and demands an
+# explicit CORS origin. Development wants the opposite, so the conveniences live
+# here rather than weakening the defaults everyone deploys with.
 services:
+  postgres:
+    # Published for psql / GUI clients on the dev machine only.
+    ports:
+      - "5432:5432"
+
   bananalytics:
     ports:
       - "8080:8080"
     environment:
       BANANA_LOG_LEVEL: "debug"
+      # Any origin, so a dashboard on localhost:3001 can talk to the API.
       BANANA_CORS_ORIGINS: "*"
 
+  dashboard:
+    ports:
+      - "3000:3000"
+
+  # Caddy only exists to terminate TLS for a real domain.
   caddy:
     profiles: ["disabled"]

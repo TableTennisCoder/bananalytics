@@ -46,6 +46,12 @@ type Event struct {
 	SessionID   string          `json:"session_id,omitempty"`
 	Geo         *GeoInfo        `json:"geo,omitempty"`
 	CreatedAt   time.Time       `json:"created_at,omitempty"`
+	// Revenue is extracted server-side from the event's properties. Nil means the
+	// event carried no monetary value.
+	Revenue *float64 `json:"revenue,omitempty"`
+	// Currency is the ISO 4217 code the revenue is denominated in, empty when the
+	// event did not state one.
+	Currency string `json:"currency,omitempty"`
 }
 
 // IngestRequest is the request body for the ingestion endpoint.

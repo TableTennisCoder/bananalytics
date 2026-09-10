@@ -2,15 +2,52 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: bananalytics
-      POSTGRES_PASSWORD: bananalytics
-      POSTGRES_DB: bananalytics
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: "${BANANA_DB_USER:-bananalytics}"
+      POSTGRES_PASSWORD: "${BANANA_DB_PASSWORD:?BANANA_DB_PASSWORD is not set. Copy .env.example to .env and generate one with: openssl rand -hex 24}"
+      POSTGRES_DB: "${BANANA_DB_NAME:-bananalytics}"
+    # No published port: the backend reaches Postgres over the internal Docker
+    # network, so binding 5432 on the host would only expose the database to the
+    # internet. Local access goes through `docker compose exec postgres psql`,
+    # and docker-compose.dev.yml publishes the port for development.
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # Docker gives a container 64 MB of shared memory by default. Postgres puts
+    # parallel worker results there, and a VACUUM or a parallel scan over a few
+    # million rows asks for more than that — which fails as "No space left on
+    # device" while the disk is nearly empty.
+    shm_size: 256mb
+    # Stock Postgres defaults assume a small machine with spinning disks. These
+    # override the four that matter for an analytics workload; everything else
+    # is left alone deliberately.
+    #
+    #   shared_buffers        the default 128 MB caches almost nothing
+    #   work_mem              at 4 MB, GROUP BY and DISTINCT sort to disk
+    #   random_page_cost      4.0 prices random reads for a mechanical drive
+    #   effective_io_concurrency  1 keeps an SSD from being asked for more
+    #
+    # Sized for a 4 GB host. On a bigger box raise shared_buffers to about a
+    # quarter of RAM and effective_cache_size to about three quarters.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      # Measured, not assumed: JIT compilation cost more than it saved on every
+      # aggregate query here — 44 functions compiled per run to shave nothing off
+      # a sequential scan. Worth re-testing if the query mix changes.
+      - -c
+      - jit=off
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bananalytics"]
+      test: ["CMD-SHELL", "pg_isready -U ${BANANA_DB_USER:-bananalytics}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,10 +59,12 @@ services:
       - "8080"
     environment:
       BANANA_PORT: "8080"
-      BANANA_DB_DSN: "postgres://bananalytics:bananalytics@postgres:5432/bananalytics?sslmode=disable"
-      BANANA_LOG_LEVEL: "info"
+      BANANA_DB_DSN: "postgres://${BANANA_DB_USER:-bananalytics}:${BANANA_DB_PASSWORD}@postgres:5432/${BANANA_DB_NAME:-bananalytics}?sslmode=disable"
+      BANANA_LOG_LEVEL: "${BANANA_LOG_LEVEL:-info}"
       BANANA_RATE_LIMIT_RPM: "1000"
-      BANANA_CORS_ORIGINS: "${BANANA_CORS_ORIGINS:-*}"
+      # Stated explicitly rather than defaulting to "*", so a production
+      # deployment cannot silently accept requests from any origin.
+      BANANA_CORS_ORIGINS: "${BANANA_CORS_ORIGINS:?BANANA_CORS_ORIGINS is not set. Put your dashboard origin in .env, e.g. https://analytics.example.com}"
       BANANA_DB_MAX_CONNS: "25"
       BANANA_DB_MIN_CONNS: "5"
       # GeoIP database path inside the container.

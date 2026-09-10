@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -39,11 +41,19 @@ func (s *EventStore) InsertBatch(ctx context.Context, events []domain.Event) (in
 			geoJSON, _ = json.Marshal(e.Geo)
 		}
 
+		// An empty currency is stored as NULL rather than an empty string so the
+		// "no currency stated" case is a single value, not two.
+		var currency any
+		if e.Currency != "" {
+			currency = e.Currency
+		}
+
 		batch.Queue(insertEventQuery,
 			e.MessageID, e.ProjectID, e.EventName, e.Type,
 			e.Properties, e.Context,
 			e.UserID, e.AnonymousID,
 			e.ClientTS, e.ServerTS, e.SessionID, e.ServerTS, geoJSON,
+			e.Revenue, currency,
 		)
 	}
 
@@ -64,44 +74,43 @@ func (s *EventStore) InsertBatch(ctx context.Context, events []domain.Event) (in
 
 // QueryEvents retrieves events matching the given filters.
 func (s *EventStore) QueryEvents(ctx context.Context, filter storage.EventFilter) ([]domain.Event, error) {
-	query := queryEventsSQL
-	args := []any{filter.ProjectID}
-	paramIdx := 2
+	var a argList
+
+	clauses := []string{"project_id = " + a.bind(filter.ProjectID)}
 
 	if filter.Event != "" {
-		query += fmt.Sprintf(queryEventsByNameSQL, paramIdx)
-		args = append(args, filter.Event)
-		paramIdx++
+		clauses = append(clauses, "event = "+a.bind(filter.Event))
 	}
-
 	if filter.UserID != "" {
-		query += fmt.Sprintf(queryEventsByUserSQL, paramIdx, paramIdx+1)
-		args = append(args, filter.UserID, filter.UserID)
-		paramIdx += 2
+		// Matching person_id finds a user's pre-login events too; anonymous_id is
+		// kept so a device that never identified is still searchable by its ID.
+		person := a.bind(filter.UserID)
+		clauses = append(clauses, "(person_id = "+person+" OR anonymous_id = "+person+")")
 	}
-
 	if !filter.From.IsZero() {
-		query += fmt.Sprintf(queryEventsFromSQL, paramIdx)
-		args = append(args, filter.From)
-		paramIdx++
+		clauses = append(clauses, "created_at >= "+a.bind(filter.From))
 	}
-
 	if !filter.To.IsZero() {
-		query += fmt.Sprintf(queryEventsToSQL, paramIdx)
-		args = append(args, filter.To)
-		paramIdx++
+		clauses = append(clauses, "created_at <= "+a.bind(filter.To))
 	}
-
-	query += queryEventsOrderSQL
+	for _, f := range filter.Filters {
+		clauses = append(clauses, dimensionExpr(f.Dimension, "", &a)+" = "+a.bind(f.Value))
+	}
 
 	limit := filter.Limit
 	if limit == 0 {
 		limit = 100
 	}
-	query += fmt.Sprintf(queryEventsLimitSQL, paramIdx, paramIdx+1)
-	args = append(args, limit, filter.Offset)
 
-	rows, err := s.pool.Query(ctx, query, args...)
+	query := fmt.Sprintf(`
+		SELECT id, project_id, message_id, event, type, properties, context, user_id, anonymous_id, client_ts, server_ts, session_id, created_at
+		FROM `+eventsTable+`
+		WHERE %s
+		ORDER BY created_at DESC
+		LIMIT %s OFFSET %s`,
+		strings.Join(clauses, " AND "), a.bind(limit), a.bind(filter.Offset))
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
@@ -124,34 +133,41 @@ func (s *EventStore) QueryEvents(ctx context.Context, filter storage.EventFilter
 	return events, rows.Err()
 }
 
-// QueryFunnel computes funnel step counts.
-func (s *EventStore) QueryFunnel(ctx context.Context, projectID string, steps []string, from, to time.Time) ([]storage.FunnelStep, error) {
-	rows, err := s.pool.Query(ctx, queryFunnelSQL, projectID, from, to, steps)
+// QueryFunnel computes conversion through an ordered sequence of event steps.
+func (s *EventStore) QueryFunnel(ctx context.Context, params storage.FunnelParams) ([]storage.FunnelStep, error) {
+	steps := params.Steps
+	if len(steps) == 0 {
+		return nil, nil
+	}
+
+	query, args := buildFunnelQuery(params)
+
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query funnel: %w", err)
 	}
 	defer rows.Close()
 
-	stepCounts := make(map[string]int)
+	counts := make([]int, len(steps))
+	medians := make([]*float64, len(steps))
 	for rows.Next() {
-		var event string
-		var count int
-		if err := rows.Scan(&event, &count); err != nil {
+		var index int
+		var reached int64
+		var median *float64
+		if err := rows.Scan(&index, &reached, &median); err != nil {
 			return nil, fmt.Errorf("scan funnel step: %w", err)
 		}
-		stepCounts[event] = count
+		if index < 1 || index > len(steps) {
+			continue
+		}
+		counts[index-1] = int(reached)
+		medians[index-1] = median
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("query funnel: %w", err)
 	}
 
-	// Return in the order of the requested steps
-	result := make([]storage.FunnelStep, 0, len(steps))
-	for _, step := range steps {
-		result = append(result, storage.FunnelStep{
-			Step:  step,
-			Count: stepCounts[step],
-		})
-	}
-
-	return result, rows.Err()
+	return storage.NewFunnelResult(steps, counts, medians), nil
 }
 
 // QuerySessions retrieves session data for a user.
@@ -195,11 +211,56 @@ func (s *EventStore) QueryRetention(ctx context.Context, projectID string, from,
 }
 
 // QueryStats returns aggregated overview metrics.
-func (s *EventStore) QueryStats(ctx context.Context, projectID string, from, to time.Time) (*storage.StatsOverview, error) {
+func (s *EventStore) QueryStats(ctx context.Context, params storage.QueryParams) (*storage.StatsOverview, error) {
+	if w, ok := s.rollupPlan(ctx, scopeOf(params), true); ok {
+		return s.statsFromRollup(ctx, params, w)
+	}
+
+	var a argList
+	where := scopeOf(params).where("", &a)
+
+	// Everything is derived from one scoped scan, so the leading country and
+	// currency are resolved *within* whatever segment is being viewed.
+	//
+	// Revenue is restricted to the leading currency: summing across currencies
+	// without exchange rates would produce a number that means nothing.
+	query := fmt.Sprintf(`
+		WITH scoped AS (
+			SELECT %s AS person_id, session_id, server_ts, geo, revenue, currency
+			FROM `+eventsTable+`
+			WHERE %s
+		),
+		top_currency AS (
+			SELECT COALESCE(currency, '') AS code
+			FROM scoped
+			WHERE revenue IS NOT NULL
+			GROUP BY 1
+			ORDER BY SUM(revenue) DESC NULLS LAST
+			LIMIT 1
+		)
+		SELECT
+			COUNT(*) AS total_events,
+			COUNT(DISTINCT person_id) AS unique_users,
+			COUNT(DISTINCT CASE WHEN server_ts >= NOW() - INTERVAL '30 minutes' THEN session_id END) AS active_sessions,
+			COALESCE(COUNT(*) FILTER (WHERE server_ts >= NOW() - INTERVAL '30 minutes') / 30.0, 0) AS events_per_minute,
+			COALESCE(
+				(SELECT geo->>'country' FROM scoped WHERE geo IS NOT NULL
+				 GROUP BY 1 ORDER BY COUNT(*) DESC LIMIT 1),
+				'Unknown'
+			) AS top_country,
+			COALESCE((SELECT code FROM top_currency), '') AS top_currency,
+			COALESCE(
+				SUM(revenue) FILTER (WHERE COALESCE(currency, '') = (SELECT code FROM top_currency)),
+				0
+			)::float8 AS revenue
+		FROM scoped`,
+		personColumn(""), where)
+
 	var stats storage.StatsOverview
-	err := s.pool.QueryRow(ctx, queryStatsSQL, projectID, from, to).Scan(
+	err := s.pool.QueryRow(ctx, query, a.args...).Scan(
 		&stats.TotalEvents, &stats.UniqueUsers, &stats.ActiveSessions,
 		&stats.EventsPerMinute, &stats.TopCountry,
+		&stats.TopCurrency, &stats.Revenue,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query stats: %w", err)
@@ -207,28 +268,34 @@ func (s *EventStore) QueryStats(ctx context.Context, projectID string, from, to 
 	return &stats, nil
 }
 
-// QueryTimeseries returns event counts bucketed by time interval.
-func (s *EventStore) QueryTimeseries(ctx context.Context, projectID string, from, to time.Time, interval string, event string) ([]storage.TimeseriesPoint, error) {
-	var baseQuery string
+// QueryTimeseries returns event and unique-people counts per time bucket.
+func (s *EventStore) QueryTimeseries(ctx context.Context, params storage.QueryParams, interval string) ([]storage.TimeseriesPoint, error) {
+	unit := "hour"
 	switch interval {
-	case "minute":
-		baseQuery = queryTimeseriesMinuteSQL
-	case "day":
-		baseQuery = queryTimeseriesDaySQL
-	default:
-		baseQuery = queryTimeseriesHourSQL
+	case "minute", "day":
+		unit = interval
 	}
 
-	var args []any
-	args = append(args, projectID, from, to)
-
-	if event != "" {
-		baseQuery += queryTimeseriesEventFilterSQL
-		args = append(args, event)
+	// Only the daily grain matches what the rollups store; hour and minute
+	// buckets still come from raw events.
+	if unit == "day" {
+		if w, ok := s.rollupPlan(ctx, scopeOf(params), true); ok {
+			return s.timeseriesFromRollup(ctx, params, w)
+		}
 	}
-	baseQuery += queryTimeseriesGroupSQL
 
-	rows, err := s.pool.Query(ctx, baseQuery, args...)
+	var a argList
+	query := fmt.Sprintf(`
+		SELECT DATE_TRUNC('%s', created_at)::text AS bucket,
+		       COUNT(*) AS count,
+		       COUNT(DISTINCT %s) AS unique_users
+		FROM `+eventsTable+`
+		WHERE %s
+		GROUP BY bucket
+		ORDER BY bucket`,
+		unit, personColumn(""), scopeOf(params).where("", &a))
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
 	if err != nil {
 		return nil, fmt.Errorf("query timeseries: %w", err)
 	}
@@ -237,7 +304,7 @@ func (s *EventStore) QueryTimeseries(ctx context.Context, projectID string, from
 	var points []storage.TimeseriesPoint
 	for rows.Next() {
 		var p storage.TimeseriesPoint
-		if err := rows.Scan(&p.Bucket, &p.Count); err != nil {
+		if err := rows.Scan(&p.Bucket, &p.Count, &p.UniqueUsers); err != nil {
 			return nil, fmt.Errorf("scan timeseries: %w", err)
 		}
 		points = append(points, p)
@@ -246,11 +313,26 @@ func (s *EventStore) QueryTimeseries(ctx context.Context, projectID string, from
 }
 
 // QueryTopEvents returns the top N events by count.
-func (s *EventStore) QueryTopEvents(ctx context.Context, projectID string, from, to time.Time, limit int) ([]storage.TopEvent, error) {
+func (s *EventStore) QueryTopEvents(ctx context.Context, params storage.QueryParams, limit int) ([]storage.TopEvent, error) {
 	if limit <= 0 {
 		limit = 10
 	}
-	rows, err := s.pool.Query(ctx, queryTopEventsSQL, projectID, from, to, limit)
+
+	if w, ok := s.rollupPlan(ctx, scopeOf(params), true); ok {
+		return s.topEventsFromRollup(ctx, params, w, limit)
+	}
+
+	var a argList
+	query := fmt.Sprintf(`
+		SELECT event, COUNT(*) AS count, COUNT(DISTINCT %s) AS unique_users
+		FROM `+eventsTable+`
+		WHERE %s
+		GROUP BY event
+		ORDER BY count DESC
+		LIMIT %s`,
+		personColumn(""), scopeOf(params).where("", &a), a.bind(limit))
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
 	if err != nil {
 		return nil, fmt.Errorf("query top events: %w", err)
 	}
@@ -259,7 +341,7 @@ func (s *EventStore) QueryTopEvents(ctx context.Context, projectID string, from,
 	var events []storage.TopEvent
 	for rows.Next() {
 		var e storage.TopEvent
-		if err := rows.Scan(&e.Event, &e.Count); err != nil {
+		if err := rows.Scan(&e.Event, &e.Count, &e.UniqueUsers); err != nil {
 			return nil, fmt.Errorf("scan top event: %w", err)
 		}
 		events = append(events, e)
@@ -287,13 +369,34 @@ func (s *EventStore) QueryEventNames(ctx context.Context, projectID string) ([]s
 }
 
 // QueryGeo returns event counts grouped by country or city.
-func (s *EventStore) QueryGeo(ctx context.Context, projectID string, from, to time.Time, groupBy string) ([]storage.GeoData, error) {
-	query := queryGeoByCountrySQL
-	if groupBy == "city" {
-		query = queryGeoByCitySQL
+func (s *EventStore) QueryGeo(ctx context.Context, params storage.QueryParams, groupBy string) ([]storage.GeoData, error) {
+	if w, ok := s.rollupPlan(ctx, scopeOf(params), true); ok {
+		return s.geoFromRollup(ctx, params, w, groupBy)
 	}
 
-	rows, err := s.pool.Query(ctx, query, projectID, from, to)
+	cityColumn, cityGroup := "'' AS city", ""
+	if groupBy == "city" {
+		cityColumn = "COALESCE(geo->>'city', 'Unknown') AS city"
+		cityGroup = ", geo->>'city'"
+	}
+
+	var a argList
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(geo->>'country', 'Unknown') AS country,
+			COALESCE(geo->>'country_code', '') AS country_code,
+			%s,
+			COUNT(*) AS count,
+			COUNT(DISTINCT %s) AS unique_users,
+			COALESCE(AVG((geo->>'lat')::float), 0) AS lat,
+			COALESCE(AVG((geo->>'lng')::float), 0) AS lng
+		FROM `+eventsTable+`
+		WHERE %s
+		GROUP BY geo->>'country', geo->>'country_code'%s
+		ORDER BY count DESC`,
+		cityColumn, personColumn(""), scopeOf(params).where("", &a), cityGroup)
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
 	if err != nil {
 		return nil, fmt.Errorf("query geo: %w", err)
 	}
@@ -308,6 +411,191 @@ func (s *EventStore) QueryGeo(ctx context.Context, projectID string, from, to ti
 		data = append(data, g)
 	}
 	return data, rows.Err()
+}
+
+// QueryBreakdown groups events by a dimension, ranked by volume. This is what
+// turns an aggregate number into an answer: not "500 people dropped off" but
+// "450 of them were on Android 1.2".
+func (s *EventStore) QueryBreakdown(ctx context.Context, params storage.BreakdownParams) ([]storage.BreakdownBucket, error) {
+	limit := params.Limit
+	if limit <= 0 || limit > storage.MaxBreakdownValues {
+		limit = storage.MaxBreakdownValues
+	}
+
+	sc := scope{
+		ProjectID: params.ProjectID,
+		From:      params.From,
+		To:        params.To,
+		Event:     params.Event,
+		Filters:   params.Filters,
+	}
+
+	// A breakdown on an arbitrary properties path has no rollup column, so only
+	// the built-in dimensions take this route.
+	if w, ok := s.rollupPlan(ctx, sc, true); ok {
+		buckets, err := s.breakdownFromRollup(ctx, params, w, limit)
+		if err == nil {
+			return buckets, nil
+		}
+		if !errors.Is(err, errRollupUnsupported) {
+			return nil, err
+		}
+	}
+
+	var a argList
+
+	// The dimension is rendered before the scope so its bound path segments keep
+	// their placeholder numbers in the order the arguments are appended.
+	value := dimensionExpr(params.Dimension, "", &a)
+
+	person := personColumn("")
+	query := fmt.Sprintf(`
+		SELECT COALESCE(%s, '(not set)') AS value,
+		       COUNT(*) AS count,
+		       COUNT(DISTINCT %s) AS unique_users,
+		       COALESCE(SUM(revenue), 0)::float8 AS revenue,
+		       COUNT(DISTINCT %s) FILTER (WHERE revenue > 0) AS paying_users
+		FROM `+eventsTable+`
+		WHERE %s
+		GROUP BY 1
+		ORDER BY count DESC
+		LIMIT %s`,
+		value, person, person, sc.where("", &a), a.bind(limit))
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
+	if err != nil {
+		return nil, fmt.Errorf("query breakdown: %w", err)
+	}
+	defer rows.Close()
+
+	var buckets []storage.BreakdownBucket
+	for rows.Next() {
+		var b storage.BreakdownBucket
+		if err := rows.Scan(&b.Value, &b.Count, &b.UniqueUsers, &b.Revenue, &b.PayingUsers); err != nil {
+			return nil, fmt.Errorf("scan breakdown: %w", err)
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, rows.Err()
+}
+
+// QueryPropertyKeys returns the custom property names seen on a project's events.
+//
+// Expanding every properties object is expensive, so this samples the most recent
+// events rather than scanning the whole range — enough to populate a dimension
+// picker without turning it into a full table scan.
+func (s *EventStore) QueryPropertyKeys(ctx context.Context, projectID string, from, to time.Time) ([]string, error) {
+	const sampleSize = 50000
+
+	var a argList
+	query := fmt.Sprintf(`
+		SELECT DISTINCT jsonb_object_keys(properties) AS key
+		FROM (
+			SELECT properties
+			FROM `+eventsTable+`
+			WHERE project_id = %s AND created_at >= %s AND created_at <= %s
+			  AND properties <> '{}'::jsonb
+			ORDER BY created_at DESC
+			LIMIT %d
+		) recent
+		ORDER BY key
+		LIMIT %d`,
+		a.bind(projectID), a.bind(from), a.bind(to), sampleSize, storage.MaxBreakdownValues)
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
+	if err != nil {
+		return nil, fmt.Errorf("query property keys: %w", err)
+	}
+	defer rows.Close()
+
+	var keys []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("scan property key: %w", err)
+		}
+		keys = append(keys, key)
+	}
+	return keys, rows.Err()
+}
+
+// QueryActiveUsers returns daily, weekly and monthly active people per day.
+//
+// WAU and MAU are rolling windows, not calendar buckets: the WAU of a day counts
+// everyone active in the 7 days ending on it. The activity scan therefore starts
+// a full month before the requested range so the earliest days have a complete
+// lookback instead of ramping up from zero.
+func (s *EventStore) QueryActiveUsers(ctx context.Context, params storage.QueryParams) ([]storage.ActiveUsersPoint, error) {
+	const mauDays = 30
+
+	if w, ok := s.rollupPlan(ctx, scopeOf(params), true); ok {
+		return s.activeUsersFromRollup(ctx, params, w)
+	}
+
+	activity := scopeOf(params)
+	activity.From = params.From.AddDate(0, 0, -(mauDays - 1))
+
+	var a argList
+	query := fmt.Sprintf(`
+		WITH days AS (
+			SELECT generate_series(%s::date, %s::date, '1 day')::date AS day
+		),
+		activity AS (
+			SELECT DISTINCT person_id, created_at::date AS day
+			FROM `+eventsTable+`
+			WHERE %s
+		)
+		SELECT
+			d.day::text AS bucket,
+			COUNT(DISTINCT a.person_id) FILTER (WHERE a.day = d.day) AS dau,
+			COUNT(DISTINCT a.person_id) FILTER (WHERE a.day > d.day - 7) AS wau,
+			COUNT(DISTINCT a.person_id) AS mau
+		FROM days d
+		LEFT JOIN activity a ON a.day > d.day - %d AND a.day <= d.day
+		GROUP BY d.day
+		ORDER BY d.day`,
+		a.bind(params.From), a.bind(params.To), activity.where("", &a), mauDays)
+
+	rows, err := s.pool.Query(ctx, query, a.args...)
+	if err != nil {
+		return nil, fmt.Errorf("query active users: %w", err)
+	}
+	defer rows.Close()
+
+	var points []storage.ActiveUsersPoint
+	for rows.Next() {
+		var p storage.ActiveUsersPoint
+		if err := rows.Scan(&p.Bucket, &p.DAU, &p.WAU, &p.MAU); err != nil {
+			return nil, fmt.Errorf("scan active users: %w", err)
+		}
+		if p.MAU > 0 {
+			p.Stickiness = float64(p.DAU) / float64(p.MAU) * 100
+		}
+		points = append(points, p)
+	}
+	return points, rows.Err()
+}
+
+// LinkIdentities records anonymous-to-user mappings.
+func (s *EventStore) LinkIdentities(ctx context.Context, links []storage.IdentityLink) error {
+	if len(links) == 0 {
+		return nil
+	}
+
+	batch := &pgx.Batch{}
+	for _, link := range links {
+		batch.Queue(insertIdentityQuery, link.ProjectID, link.AnonymousID, link.UserID)
+	}
+
+	results := s.pool.SendBatch(ctx, batch)
+	defer results.Close()
+
+	for range links {
+		if _, err := results.Exec(); err != nil {
+			return fmt.Errorf("link identity: %w", err)
+		}
+	}
+	return nil
 }
 
 // QueryLive returns real-time activity data.

@@ -18,8 +18,8 @@ type EventRepository interface {
 	// QueryEvents retrieves events matching the given filters.
 	QueryEvents(ctx context.Context, filter EventFilter) ([]domain.Event, error)
 
-	// QueryFunnel computes funnel conversion rates for a sequence of event steps.
-	QueryFunnel(ctx context.Context, projectID string, steps []string, from, to time.Time) ([]FunnelStep, error)
+	// QueryFunnel computes conversion through an ordered sequence of event steps.
+	QueryFunnel(ctx context.Context, params FunnelParams) ([]FunnelStep, error)
 
 	// QuerySessions retrieves session data for a user.
 	QuerySessions(ctx context.Context, projectID string, userID string) ([]Session, error)
@@ -28,19 +28,37 @@ type EventRepository interface {
 	QueryRetention(ctx context.Context, projectID string, from, to time.Time) ([]RetentionCohort, error)
 
 	// QueryStats returns aggregated overview metrics.
-	QueryStats(ctx context.Context, projectID string, from, to time.Time) (*StatsOverview, error)
+	QueryStats(ctx context.Context, params QueryParams) (*StatsOverview, error)
 
 	// QueryTimeseries returns event counts bucketed by time interval.
-	QueryTimeseries(ctx context.Context, projectID string, from, to time.Time, interval string, event string) ([]TimeseriesPoint, error)
+	QueryTimeseries(ctx context.Context, params QueryParams, interval string) ([]TimeseriesPoint, error)
 
 	// QueryTopEvents returns the top N events by count.
-	QueryTopEvents(ctx context.Context, projectID string, from, to time.Time, limit int) ([]TopEvent, error)
+	QueryTopEvents(ctx context.Context, params QueryParams, limit int) ([]TopEvent, error)
 
 	// QueryEventNames returns distinct event names for a project.
 	QueryEventNames(ctx context.Context, projectID string) ([]string, error)
 
 	// QueryGeo returns event counts grouped by country or city.
-	QueryGeo(ctx context.Context, projectID string, from, to time.Time, groupBy string) ([]GeoData, error)
+	QueryGeo(ctx context.Context, params QueryParams, groupBy string) ([]GeoData, error)
+
+	// QueryBreakdown groups events by a dimension, ranked by volume.
+	QueryBreakdown(ctx context.Context, params BreakdownParams) ([]BreakdownBucket, error)
+
+	// QueryPropertyKeys returns the custom property names seen on a project's
+	// events, so the dashboard can offer them as breakdown dimensions.
+	QueryPropertyKeys(ctx context.Context, projectID string, from, to time.Time) ([]string, error)
+
+	// QueryActiveUsers returns daily, weekly and monthly active people per day.
+	QueryActiveUsers(ctx context.Context, params QueryParams) ([]ActiveUsersPoint, error)
+
+	// QueryRevenue aggregates revenue, paying people and the derived per-user
+	// averages for a range.
+	QueryRevenue(ctx context.Context, params RevenueParams) (*RevenueSummary, error)
+
+	// LinkIdentities records anonymous-to-user mappings so a person's pre-login
+	// events are attributed to them.
+	LinkIdentities(ctx context.Context, links []IdentityLink) error
 
 	// QueryLive returns real-time activity data.
 	QueryLive(ctx context.Context, projectID string) (*LiveData, error)
@@ -108,12 +126,49 @@ type EventFilter struct {
 	To        time.Time
 	Limit     int
 	Offset    int
+	Filters   []DimensionFilter
 }
 
-// FunnelStep represents a single step in a funnel analysis.
+// QueryParams are the parameters shared by the aggregate query endpoints.
+type QueryParams struct {
+	ProjectID string
+	From      time.Time
+	To        time.Time
+	// Event narrows the query to a single event name when set.
+	Event   string
+	Filters []DimensionFilter
+}
+
+// MaxFunnelSteps caps how many steps a single funnel query may contain.
+const MaxFunnelSteps = 10
+
+// FunnelParams describes an ordered funnel query.
+type FunnelParams struct {
+	ProjectID string
+	Steps     []string
+	From      time.Time
+	To        time.Time
+	// Window is how long a person has to complete the whole funnel, measured
+	// from their first step. Zero means the From/To range is the only bound.
+	Window time.Duration
+	// Filters narrow every step to a segment, e.g. only Android users.
+	Filters []DimensionFilter
+}
+
+// FunnelStep is one step of a funnel result.
 type FunnelStep struct {
 	Step  string `json:"step"`
 	Count int    `json:"count"`
+	// ConversionRate is the percentage of the first step's people who reached here.
+	ConversionRate float64 `json:"conversion_rate"`
+	// StepConversionRate is the percentage of the *previous* step's people who
+	// continued to this step.
+	StepConversionRate float64 `json:"step_conversion_rate"`
+	// Dropped is how many people were lost between the previous step and this one.
+	Dropped int `json:"dropped"`
+	// MedianSecondsFromPrev is the median time people took to get here from the
+	// previous step. Nil on the first step and when nobody converted.
+	MedianSecondsFromPrev *float64 `json:"median_seconds_from_prev,omitempty"`
 }
 
 // Session represents a user session.
@@ -145,6 +200,74 @@ type RetentionCohort struct {
 	Retained   int    `json:"retained"`
 }
 
+// RevenueParams describes a revenue query.
+type RevenueParams struct {
+	QueryParams
+	// Currency selects which currency to report on. Empty means "pick the one
+	// with the most revenue in range" — totals across currencies would be
+	// meaningless without exchange rates.
+	Currency string
+	// Interval buckets the timeseries: minute, hour or day.
+	Interval string
+}
+
+// RevenuePoint is the revenue booked in one time bucket.
+type RevenuePoint struct {
+	Bucket       string  `json:"bucket"`
+	Revenue      float64 `json:"revenue"`
+	Transactions int     `json:"transactions"`
+	PayingUsers  int     `json:"paying_users"`
+}
+
+// RevenueSummary aggregates what a project earned in a range.
+type RevenueSummary struct {
+	// Currency the figures below are denominated in. Empty means the events did
+	// not state one.
+	Currency string `json:"currency"`
+	// AvailableCurrencies lists every currency with revenue in range, so a
+	// project reporting in several can tell the total covers only one of them.
+	AvailableCurrencies []string `json:"available_currencies"`
+
+	TotalRevenue float64 `json:"total_revenue"`
+	Transactions int     `json:"transactions"`
+	// PayingUsers is how many distinct people spent anything.
+	PayingUsers int `json:"paying_users"`
+	// ActiveUsers is everyone seen in range, paying or not — the denominator
+	// that makes ARPU meaningful.
+	ActiveUsers int `json:"active_users"`
+
+	// ARPU is revenue per active person; ARPPU is revenue per *paying* person.
+	// The gap between them is the size of the free-to-paid opportunity.
+	ARPU              float64 `json:"arpu"`
+	ARPPU             float64 `json:"arppu"`
+	AverageOrderValue float64 `json:"average_order_value"`
+	// PayingShare is the percentage of active people who paid.
+	PayingShare float64 `json:"paying_share"`
+
+	Timeseries []RevenuePoint `json:"timeseries"`
+}
+
+// IdentityLink maps an anonymous ID to the user it turned out to belong to.
+type IdentityLink struct {
+	ProjectID   string
+	AnonymousID string
+	UserID      string
+}
+
+// ActiveUsersPoint holds the active-people counts for one day.
+type ActiveUsersPoint struct {
+	Bucket string `json:"bucket"` // ISO date
+	// DAU is people active on this day.
+	DAU int `json:"dau"`
+	// WAU is people active in the 7 days ending on this day.
+	WAU int `json:"wau"`
+	// MAU is people active in the 30 days ending on this day.
+	MAU int `json:"mau"`
+	// Stickiness is DAU as a percentage of MAU — how much of the monthly
+	// audience shows up on a given day.
+	Stickiness float64 `json:"stickiness"`
+}
+
 // StatsOverview contains aggregated dashboard metrics.
 type StatsOverview struct {
 	TotalEvents     int     `json:"total_events"`
@@ -152,18 +275,23 @@ type StatsOverview struct {
 	ActiveSessions  int     `json:"active_sessions"`
 	EventsPerMinute float64 `json:"events_per_minute"`
 	TopCountry      string  `json:"top_country"`
+	// Revenue booked in the same range, in TopCurrency.
+	Revenue     float64 `json:"revenue"`
+	TopCurrency string  `json:"top_currency"`
 }
 
-// TimeseriesPoint represents a single time bucket with event count.
+// TimeseriesPoint represents a single time bucket with its counts.
 type TimeseriesPoint struct {
-	Bucket string `json:"bucket"` // ISO 8601 timestamp
-	Count  int    `json:"count"`
+	Bucket      string `json:"bucket"` // ISO 8601 timestamp
+	Count       int    `json:"count"`
+	UniqueUsers int    `json:"unique_users"`
 }
 
-// TopEvent represents an event name with its total count.
+// TopEvent represents an event name with its totals.
 type TopEvent struct {
-	Event string `json:"event"`
-	Count int    `json:"count"`
+	Event       string `json:"event"`
+	Count       int    `json:"count"`
+	UniqueUsers int    `json:"unique_users"`
 }
 
 // GeoData represents analytics data grouped by geographic location.

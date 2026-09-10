@@ -19,3 +19,7 @@ geoipupdate.conf
 
 # Local dev overrides (port mappings, disabled services, etc.)
 docker-compose.override.yml
+
+# Database dumps written by scripts/backup.sh — never commit these, they
+# contain every event and user record.
+backups/

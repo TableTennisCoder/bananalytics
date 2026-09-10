@@ -113,6 +113,10 @@ func NewRouter(cfg RouterConfig) http.Handler {
 			r.Get("/query/stats", cfg.Query.HandleStats)
 			r.Get("/query/geo", cfg.Query.HandleGeo)
 			r.Get("/query/live", cfg.Query.HandleLive)
+			r.Get("/query/breakdown", cfg.Query.HandleBreakdown)
+			r.Get("/query/dimensions", cfg.Query.HandleDimensions)
+			r.Get("/query/active-users", cfg.Query.HandleActiveUsers)
+			r.Get("/query/revenue", cfg.Query.HandleRevenue)
 		})
 
 		// User auth (no auth required, but setup/login are IP rate-limited extra strict)

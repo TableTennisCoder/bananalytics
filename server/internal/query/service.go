@@ -41,9 +41,48 @@ func (s *Service) GetEvents(ctx context.Context, filter storage.EventFilter) ([]
 	return results, nil
 }
 
-// GetFunnel computes funnel analysis.
-func (s *Service) GetFunnel(ctx context.Context, projectID string, steps []string, from, to time.Time) ([]storage.FunnelStep, error) {
-	return s.events.QueryFunnel(ctx, projectID, steps, from, to)
+// GetFunnel computes conversion through an ordered sequence of event steps.
+func (s *Service) GetFunnel(ctx context.Context, params storage.FunnelParams) ([]storage.FunnelStep, error) {
+	return s.events.QueryFunnel(ctx, params)
+}
+
+// GetSegmentedFunnel computes one funnel per value of a breakdown dimension, so
+// segments can be compared side by side.
+//
+// The dimension's top values are resolved first and each segment then runs as its
+// own funnel, which keeps the ordered-step semantics intact per segment.
+func (s *Service) GetSegmentedFunnel(ctx context.Context, params storage.FunnelParams, dimension storage.Dimension, limit int) ([]storage.FunnelSegment, error) {
+	buckets, err := s.events.QueryBreakdown(ctx, storage.BreakdownParams{
+		ProjectID: params.ProjectID,
+		Dimension: dimension,
+		Event:     params.Steps[0],
+		From:      params.From,
+		To:        params.To,
+		Filters:   params.Filters,
+		Limit:     limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	segments := make([]storage.FunnelSegment, 0, len(buckets))
+	for _, bucket := range buckets {
+		// "(not set)" stands for a missing value and cannot be filtered on.
+		if bucket.Value == storage.NotSetValue {
+			continue
+		}
+
+		segmentParams := params
+		segmentParams.Filters = append(append([]storage.DimensionFilter{}, params.Filters...),
+			storage.DimensionFilter{Dimension: dimension, Value: bucket.Value})
+
+		steps, err := s.events.QueryFunnel(ctx, segmentParams)
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, storage.FunnelSegment{Value: bucket.Value, Steps: steps})
+	}
+	return segments, nil
 }
 
 // GetSessions retrieves sessions for a user.
@@ -57,18 +96,18 @@ func (s *Service) GetRetention(ctx context.Context, projectID string, from, to t
 }
 
 // GetStats returns aggregated overview metrics.
-func (s *Service) GetStats(ctx context.Context, projectID string, from, to time.Time) (*storage.StatsOverview, error) {
-	return s.events.QueryStats(ctx, projectID, from, to)
+func (s *Service) GetStats(ctx context.Context, params storage.QueryParams) (*storage.StatsOverview, error) {
+	return s.events.QueryStats(ctx, params)
 }
 
 // GetTimeseries returns event counts bucketed by time interval.
-func (s *Service) GetTimeseries(ctx context.Context, projectID string, from, to time.Time, interval string, event string) ([]storage.TimeseriesPoint, error) {
-	return s.events.QueryTimeseries(ctx, projectID, from, to, interval, event)
+func (s *Service) GetTimeseries(ctx context.Context, params storage.QueryParams, interval string) ([]storage.TimeseriesPoint, error) {
+	return s.events.QueryTimeseries(ctx, params, interval)
 }
 
 // GetTopEvents returns the top N events by count.
-func (s *Service) GetTopEvents(ctx context.Context, projectID string, from, to time.Time, limit int) ([]storage.TopEvent, error) {
-	return s.events.QueryTopEvents(ctx, projectID, from, to, limit)
+func (s *Service) GetTopEvents(ctx context.Context, params storage.QueryParams, limit int) ([]storage.TopEvent, error) {
+	return s.events.QueryTopEvents(ctx, params, limit)
 }
 
 // GetEventNames returns distinct event names.
@@ -77,8 +116,42 @@ func (s *Service) GetEventNames(ctx context.Context, projectID string) ([]string
 }
 
 // GetGeo returns geographic analytics data.
-func (s *Service) GetGeo(ctx context.Context, projectID string, from, to time.Time, groupBy string) ([]storage.GeoData, error) {
-	return s.events.QueryGeo(ctx, projectID, from, to, groupBy)
+func (s *Service) GetGeo(ctx context.Context, params storage.QueryParams, groupBy string) ([]storage.GeoData, error) {
+	return s.events.QueryGeo(ctx, params, groupBy)
+}
+
+// GetBreakdown groups events by a dimension.
+func (s *Service) GetBreakdown(ctx context.Context, params storage.BreakdownParams) ([]storage.BreakdownBucket, error) {
+	return s.events.QueryBreakdown(ctx, params)
+}
+
+// GetDimensions returns every dimension available for breakdowns and filters:
+// the built-in shorthands plus the custom event properties actually in use.
+func (s *Service) GetDimensions(ctx context.Context, projectID string, from, to time.Time) ([]storage.Dimension, error) {
+	dimensions := storage.BuiltinDimensions()
+
+	keys, err := s.events.QueryPropertyKeys(ctx, projectID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		if dim, err := storage.ParseDimension("properties." + key); err == nil {
+			dimensions = append(dimensions, dim)
+		}
+	}
+	return dimensions, nil
+}
+
+// GetActiveUsers returns the DAU/WAU/MAU curve — how many people actually use
+// the app, as opposed to how many events they generate.
+func (s *Service) GetActiveUsers(ctx context.Context, params storage.QueryParams) ([]storage.ActiveUsersPoint, error) {
+	return s.events.QueryActiveUsers(ctx, params)
+}
+
+// GetRevenue aggregates what the project earned, plus the per-person averages
+// that turn behaviour into money.
+func (s *Service) GetRevenue(ctx context.Context, params storage.RevenueParams) (*storage.RevenueSummary, error) {
+	return s.events.QueryRevenue(ctx, params)
 }
 
 // GetLive returns real-time activity data.
