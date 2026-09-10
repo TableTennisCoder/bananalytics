@@ -1,0 +1,110 @@
+# Bananalytics — self-hosted deployment.
+#
+# This is the file install.sh puts on a server. It differs from the one in
+# server/ in exactly one way: it pulls published images instead of building from
+# source. Building the dashboard needs about 1.7 GB of RAM, which is most of a
+# 4 GB VPS, and it would need the whole repository on the box.
+#
+# Everything reachable from outside goes through Caddy. Postgres, the API and the
+# dashboard talk over the internal network and publish no host ports.
+#
+#   docker compose pull && docker compose up -d      upgrade
+#   docker compose logs -f bananalytics              what the backend is doing
+#   docker compose down                              stop (data survives)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "${BANANA_DB_USER:-bananalytics}"
+      POSTGRES_PASSWORD: "${BANANA_DB_PASSWORD:?BANANA_DB_PASSWORD is not set — run install.sh or set it in .env}"
+      POSTGRES_DB: "${BANANA_DB_NAME:-bananalytics}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Docker gives a container 64 MB of shared memory. Postgres puts parallel
+    # worker results there, and a VACUUM over a few million rows asks for more —
+    # which fails as "No space left on device" while the disk is nearly empty.
+    shm_size: 256mb
+    # Stock defaults assume a small machine with spinning disks. Sized here for a
+    # 4 GB host; on a bigger box raise shared_buffers to about a quarter of RAM
+    # and effective_cache_size to about three quarters.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${BANANA_PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${BANANA_PG_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - jit=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${BANANA_DB_USER:-bananalytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  bananalytics:
+    image: "ghcr.io/${BANANA_IMAGE_OWNER:-tabletenniscoder}/bananalytics-server:${BANANA_VERSION:-latest}"
+    expose:
+      - "8080"
+    environment:
+      BANANA_PORT: "8080"
+      BANANA_DB_DSN: "postgres://${BANANA_DB_USER:-bananalytics}:${BANANA_DB_PASSWORD}@postgres:5432/${BANANA_DB_NAME:-bananalytics}?sslmode=disable"
+      BANANA_LOG_LEVEL: "${BANANA_LOG_LEVEL:-info}"
+      BANANA_RATE_LIMIT_RPM: "${BANANA_RATE_LIMIT_RPM:-1000}"
+      BANANA_IP_RATE_LIMIT_RPM: "${BANANA_IP_RATE_LIMIT_RPM:-300}"
+      BANANA_CORS_ORIGINS: "${BANANA_CORS_ORIGINS:?BANANA_CORS_ORIGINS is not set — run install.sh or set it in .env}"
+      BANANA_DB_MAX_CONNS: "25"
+      BANANA_DB_MIN_CONNS: "5"
+      BANANA_ROLLUP_INTERVAL: "${BANANA_ROLLUP_INTERVAL:-60s}"
+      # 0 keeps raw events forever. See .env for what a shorter window costs.
+      BANANA_RAW_RETENTION_MONTHS: "${BANANA_RAW_RETENTION_MONTHS:-0}"
+      BANANA_GEOIP_DB: "/app/geoip/GeoLite2-City.mmdb"
+    volumes:
+      # Empty unless you add a MaxMind database; GeoIP disables itself gracefully.
+      - ./geoip:/app/geoip:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dashboard:
+    image: "ghcr.io/${BANANA_IMAGE_OWNER:-tabletenniscoder}/bananalytics-dashboard:${BANANA_VERSION:-latest}"
+    expose:
+      - "3000"
+    environment:
+      BANANA_BACKEND_URL: "http://bananalytics:8080"
+      NODE_ENV: "production"
+    depends_on:
+      bananalytics:
+        condition: service_started
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      BANANA_DOMAIN: "${BANANA_DOMAIN:-localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bananalytics
+      - dashboard
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

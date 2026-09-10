@@ -4,6 +4,20 @@ Self-hosted analytics backend for React Native apps. Ingests events from the `@b
 
 ## Quick Start
 
+On a server, one command does everything — installs Docker if missing, asks for
+your domain, generates a password, pulls the published images and starts up:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TableTennisCoder/bananalytics/main/install.sh | sudo bash
+```
+
+Point your domain's A record at the machine first; Caddy needs it to obtain a
+certificate. Re-run the same command to upgrade — it never touches your
+configuration or data. `--uninstall` removes it again.
+
+The rest of this section is the same thing by hand, which is also what you want
+for local development.
+
 Configuration comes from `.env`, and compose refuses to start without the two
 required values rather than falling back to insecure defaults.
 

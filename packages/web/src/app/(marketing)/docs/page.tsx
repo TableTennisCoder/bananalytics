@@ -544,6 +544,37 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
             </div>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
+              The short way
+            </h4>
+            <p>
+              One command on a fresh server. It installs Docker if it is missing,
+              asks for your domain, generates a database password, pulls the
+              images and starts everything.
+            </p>
+            <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/TableTennisCoder/bananalytics/main/install.sh | sudo bash`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Point your domain&apos;s A record at the server first &mdash; Caddy
+              needs it in place to obtain a TLS certificate, and the installer
+              will tell you if it is not. Run the same command again later to
+              upgrade; it never overwrites your configuration or data. For
+              automation, pass{" "}
+              <code className="font-mono text-xs">--domain analytics.example.com --yes</code>{" "}
+              after{" "}
+              <code className="font-mono text-xs">bash -s --</code>. To remove it
+              again, <code className="font-mono text-xs">--uninstall</code>.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Prefer to read a script before running it as root? Sensible &mdash;{" "}
+              <a
+                href="https://github.com/TableTennisCoder/bananalytics/blob/main/install.sh"
+                className="text-primary hover:underline"
+              >
+                here it is
+              </a>
+              . The manual steps below do the same thing by hand.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
               1. Clone the repo
             </h4>
             <CodeBlock>{`sudo mkdir -p /opt/bananalytics

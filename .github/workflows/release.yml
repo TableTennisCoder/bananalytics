@@ -1,0 +1,85 @@
+name: Release
+
+# Publishes the images the installer pulls.
+#
+# Self-hosters run this software on small ARM and x86 boxes, so both images are
+# built for linux/amd64 and linux/arm64. Building on the target machine instead
+# would need ~1.7 GB of RAM for the Next.js build alone, which is most of a 4 GB
+# VPS and all of its patience.
+#
+# Tag a release to publish:
+#   git tag v0.2.0 && git push origin v0.2.0
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to publish, e.g. v0.2.0'
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish:
+    name: Build & publish ${{ matrix.name }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            context: server
+            image: bananalytics-server
+          - name: dashboard
+            context: packages/dashboard
+            image: bananalytics-dashboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # arm64 images are built under emulation on an x86 runner. It is slower
+      # than a native runner but needs no extra infrastructure, and this runs
+      # only on a release.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          # A release gets its exact version, its minor series, and latest, so an
+          # installer can pin as tightly as it wants.
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' || inputs.tag != '' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max
