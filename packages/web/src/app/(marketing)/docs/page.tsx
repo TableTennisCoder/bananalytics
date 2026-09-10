@@ -212,21 +212,24 @@ export default function DocsPage() {
             title="Get Your Keys"
             id="cloud-start"
           >
-            <p>
-              You&apos;re three clicks away from tracking events. The infra is
-              already running for you — just grab your keys and drop them into
-              your app.
-            </p>
+            <div className="rounded-lg border border-primary/30 bg-primary/[0.04] p-4 text-sm">
+              <p className="mb-1 font-semibold">Cloud isn&apos;t open yet.</p>
+              <p className="mb-0 text-muted-foreground">
+                Managed hosting is in private beta, targeting Q3 2026.{" "}
+                <Link href="/waitlist" className="text-primary hover:underline">
+                  Join the waitlist
+                </Link>{" "}
+                for early access and a launch discount. Everything below is how
+                it will work — if you want to start tracking today, switch to{" "}
+                <strong>Self-Host</strong> above. It is production-ready and
+                takes about five minutes.
+              </p>
+            </div>
 
             <p className="text-sm pt-2">
-              <strong>1. Create your account.</strong> Head to{" "}
-              <a
-                href="https://app.bananalytics.xyz/signup"
-                className="text-primary hover:underline"
-              >
-                app.bananalytics.xyz/signup
-              </a>{" "}
-              and register. Email + password, takes 30 seconds.
+              <strong>1. Create your account.</strong> You&apos;ll get an invite
+              by email once your waitlist spot opens. Email + password, takes 30
+              seconds.
             </p>
 
             <p className="text-sm pt-2">
@@ -469,11 +472,12 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
               </table>
             </div>
             <p className="text-sm text-muted-foreground">
-              The stack idles at ~830 MB and peaks around 1.3&ndash;1.7 GB under
-              load, so 2 GB works but leaves little headroom. A Hetzner CX22
-              (2 vCPU / 4 GB / 40 GB, €4.75/month) is the sweet spot and holds
-              roughly 30&ndash;40 million stored events. Disk is what runs out
-              first &mdash; budget about 1 GB per million events, and see{" "}
+              The three containers idle at about 60 MB on an empty database. Under
+              load the number is set almost entirely by Postgres, which grows its
+              page cache to fill whatever you give it &mdash; measured at 3 GB with
+              4.2 million events stored. Give the box 8 GB and it will use it well;
+              on 4 GB it still works, it just reads more from disk. Budget about
+              1 GB of disk per million events, and see{" "}
               <a href="#capacity" className="text-primary hover:underline">
                 Capacity &amp; Scaling
               </a>{" "}
@@ -696,52 +700,98 @@ docker compose up -d --build`}</CodeBlock>
                 <tbody className="divide-y divide-border">
                   <tr><td className="px-4 py-2 font-mono text-xs">Ubuntu base + sshd</td><td className="px-4 py-2 text-muted-foreground">~300 MB</td><td className="px-4 py-2 text-muted-foreground">~300 MB</td></tr>
                   <tr><td className="px-4 py-2 font-mono text-xs">Docker daemon</td><td className="px-4 py-2 text-muted-foreground">~100 MB</td><td className="px-4 py-2 text-muted-foreground">~100 MB</td></tr>
-                  <tr><td className="px-4 py-2 font-mono text-xs">PostgreSQL 16</td><td className="px-4 py-2 text-muted-foreground">~150 MB</td><td className="px-4 py-2 text-muted-foreground">~400&ndash;600 MB</td></tr>
-                  <tr><td className="px-4 py-2 font-mono text-xs">bananalytics (Go)</td><td className="px-4 py-2 text-muted-foreground">~30 MB</td><td className="px-4 py-2 text-muted-foreground">~80&ndash;150 MB</td></tr>
-                  <tr><td className="px-4 py-2 font-mono text-xs">Next.js dashboard</td><td className="px-4 py-2 text-muted-foreground">~250 MB</td><td className="px-4 py-2 text-muted-foreground">~400&ndash;500 MB</td></tr>
-                  <tr className="bg-primary/[0.04]"><td className="px-4 py-2 font-semibold">Total</td><td className="px-4 py-2 font-semibold">~830 MB</td><td className="px-4 py-2 font-semibold">~1.3&ndash;1.7 GB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">PostgreSQL 16</td><td className="px-4 py-2 text-muted-foreground">~23 MB</td><td className="px-4 py-2 text-muted-foreground">up to 3 GB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">bananalytics (Go)</td><td className="px-4 py-2 text-muted-foreground">~8 MB</td><td className="px-4 py-2 text-muted-foreground">~13 MB</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Next.js dashboard</td><td className="px-4 py-2 text-muted-foreground">~30 MB</td><td className="px-4 py-2 text-muted-foreground">~30 MB</td></tr>
+                  <tr className="bg-primary/[0.04]"><td className="px-4 py-2 font-semibold">Total</td><td className="px-4 py-2 font-semibold">~460 MB</td><td className="px-4 py-2 font-semibold">~3.4 GB</td></tr>
                 </tbody>
               </table>
             </div>
 
             <p className="text-sm text-muted-foreground">
-              You&apos;ll sit at ~25% RAM idle, ~40% under normal use. Plenty
-              of headroom on a 4 GB box.
+              Go and Next.js are rounding errors. Postgres is the whole budget,
+              and it will use whatever cache you give it &mdash; which is what you
+              want, because that cache is why queries stay fast.
             </p>
 
             <h4 className="text-base font-semibold mt-8 mb-3">Event throughput</h4>
             <p>
-              The Go server is never the bottleneck &mdash; Postgres is. With
-              the default config on 2 vCPU + 4 GB:
+              Measured against the real stack, not estimated. Ingest is limited by
+              rate limiting long before it is limited by the database:
             </p>
             <ul className="space-y-1.5 text-sm pl-2">
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                <span><strong>Sustained ingest:</strong> ~500&ndash;1,000 events/second</span>
+                <span>
+                  <strong>With default rate limits:</strong> ~500 events/second.
+                  This is a policy, not a ceiling &mdash;{" "}
+                  <code className="font-mono text-xs">BANANA_IP_RATE_LIMIT_RPM</code>{" "}
+                  defaults to 300 requests per minute per IP, which at 100 events
+                  per batch works out to exactly that. Mobile SDKs each send from
+                  their own IP, so this only binds if you proxy through one server.
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                <span><strong>Peak burst:</strong> ~2,000 events/second (batched)</span>
+                <span><strong>Actual capacity, 2 cores:</strong> ~2,650 events/second</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                <span><strong>Per day sustained:</strong> ~40&ndash;80 million events</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                <span><strong>Per month theoretical max:</strong> ~1&ndash;2 billion events</span>
+                <span>
+                  <strong>Actual capacity, 12 cores:</strong> ~3,700 events/second
+                  while dashboard queries run at the same time, zero failures
+                </span>
               </li>
             </ul>
             <p className="text-sm text-muted-foreground">
-              For comparison, Mixpanel charges ~$2,800/month for 1B events
-              (at $0.28/1K).
+              Postgres, not the Go server, is what saturates first &mdash; under
+              load it took 11 of 12 cores while the backend used half of one.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">Dashboard query speed</h4>
+            <p>
+              Queries read pre-aggregated daily rollups rather than scanning the
+              raw event stream, so response time tracks the number of distinct
+              people, not the number of events. Measured on 4.2 million events
+              across a 90-day window:
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">View</th>
+                    <th className="px-4 py-2 text-left font-medium">Response</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr><td className="px-4 py-2 font-mono text-xs">Live</td><td className="px-4 py-2 text-muted-foreground">14 ms</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Overview</td><td className="px-4 py-2 text-muted-foreground">273 ms</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Breakdown</td><td className="px-4 py-2 text-muted-foreground">~450 ms</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Geography</td><td className="px-4 py-2 text-muted-foreground">489 ms</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Revenue</td><td className="px-4 py-2 text-muted-foreground">512 ms</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Events over time</td><td className="px-4 py-2 text-muted-foreground">752 ms</td></tr>
+                  <tr><td className="px-4 py-2 font-mono text-xs">Funnels</td><td className="px-4 py-2 text-muted-foreground">~4 s</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Funnels are the exception: they need per-person event sequences, which
+              no daily aggregate can express, so they still read raw events. The same
+              is true of breakdowns on a custom{" "}
+              <code className="font-mono text-xs">properties</code> path.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Aggregates refresh every 60 seconds by default (
+              <code className="font-mono text-xs">BANANA_ROLLUP_INTERVAL</code>), so
+              dashboard numbers can be up to a minute behind. The Live view always
+              reads raw events and is never stale.
             </p>
 
             <h4 className="text-base font-semibold mt-8 mb-3">Disk is the real limit</h4>
             <p>
-              Each event row is ~300&ndash;700 bytes in Postgres (event name,
-              properties JSON, IDs, timestamps, geo, indexes). Including
-              index overhead and WAL:
+              Measured at 4.2 million real events with a full SDK payload, one
+              row costs <strong>1,084 bytes</strong> &mdash; 819 bytes of data plus
+              265 bytes spread across the indexes. Including WAL and free space:
             </p>
 
             <div className="overflow-x-auto rounded-lg border border-border">
@@ -753,18 +803,19 @@ docker compose up -d --build`}</CodeBlock>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  <tr><td className="px-4 py-2">1 million</td><td className="px-4 py-2 text-muted-foreground">~1 GB</td></tr>
-                  <tr><td className="px-4 py-2">10 million</td><td className="px-4 py-2 text-muted-foreground">~8&ndash;12 GB</td></tr>
-                  <tr><td className="px-4 py-2">30 million</td><td className="px-4 py-2 text-muted-foreground">~25&ndash;30 GB</td></tr>
-                  <tr><td className="px-4 py-2">50 million</td><td className="px-4 py-2 text-destructive">~40 GB &mdash; disk full</td></tr>
+                  <tr><td className="px-4 py-2">1 million</td><td className="px-4 py-2 text-muted-foreground">~1.2 GB</td></tr>
+                  <tr><td className="px-4 py-2">10 million</td><td className="px-4 py-2 text-muted-foreground">~12 GB</td></tr>
+                  <tr><td className="px-4 py-2">30 million</td><td className="px-4 py-2 text-muted-foreground">~37 GB &mdash; a 40 GB disk is full</td></tr>
+                  <tr><td className="px-4 py-2">50 million</td><td className="px-4 py-2 text-destructive">~62 GB &mdash; needs a bigger box or a volume</td></tr>
                 </tbody>
               </table>
             </div>
 
             <p className="text-sm">
-              <strong>Practical capacity of a CX22:</strong> ~30&ndash;40
-              million events stored. If you average 50 events per active user
-              per day:
+              <strong>Practical capacity of a CX22:</strong> ~32 million events on
+              its 40 GB disk. Query speed is no longer what limits you &mdash; the
+              rollups took care of that &mdash; so this is genuinely a disk number.
+              If you average 50 events per active user per day:
             </p>
             <ul className="space-y-1.5 text-sm pl-2">
               <li className="flex items-start gap-2">

@@ -212,9 +212,9 @@ export default function LandingPage() {
 
           {/* Hero stat cards */}
           <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Stat value="1B+" label="events / month" sub="theoretical max throughput" />
-            <Stat value="30M" label="events on 40 GB" sub="before the disk fills up" />
-            <Stat value="< 1.7 GB" label="RAM in use" sub="backend + dashboard + Postgres" />
+            <Stat value="273 ms" label="dashboard load" sub="measured at 4.2M events" />
+            <Stat value="32M" label="events on 40 GB" sub="before the disk fills up" />
+            <Stat value="2,650/s" label="events ingested" sub="measured on 2 cores" />
           </div>
 
           {/* Scale table */}
