@@ -179,6 +179,37 @@ export class BananalyticsClient {
   }
 
   /**
+   * Tracks a purchase or any other event that earned money.
+   *
+   * The server reads `revenue` and `currency` out of the properties of *any*
+   * event, so an app that already tracks its own purchase event can simply add
+   * those two properties instead of switching to this method.
+   *
+   * @param amount - The monetary value. Negative amounts record refunds.
+   * @param currency - ISO 4217 code, e.g. 'USD' or 'EUR'
+   * @param properties - Optional extra properties, such as the product ID
+   * @param eventName - Event name to record it under
+   *
+   * @example
+   * ```ts
+   * client.trackRevenue(9.99, 'EUR', { product_id: 'pro_monthly' });
+   * ```
+   */
+  trackRevenue(
+    amount: number,
+    currency = 'USD',
+    properties?: Properties,
+    eventName = '$purchase',
+  ): void {
+    if (!Number.isFinite(amount)) {
+      this.logger.error('Revenue amount must be a finite number', amount);
+      return;
+    }
+
+    this.track(eventName, { ...properties, revenue: amount, currency });
+  }
+
+  /**
    * Identifies the current user.
    *
    * @param userId - The user identifier

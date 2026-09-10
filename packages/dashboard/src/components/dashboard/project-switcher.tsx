@@ -13,7 +13,7 @@ export function ProjectSwitcher() {
   const [open, setOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Hide entirely in demo mode
+  // Hide entirely in demo mode — there is nothing to switch between.
   const isDemo = pathname.startsWith("/demo");
 
   // Read active project from cookie on mount + whenever projects change

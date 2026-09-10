@@ -1,9 +1,12 @@
 import type { StatsOverview } from "@/types/charts";
 import type { EventResult, TimeseriesPoint, TopEvent, TimeseriesInterval } from "@/types/events";
-import type { FunnelStep } from "@/types/funnel";
+import type { FunnelResponse } from "@/types/funnel";
 import type { RetentionCohort } from "@/types/retention";
 import type { Session } from "@/types/sessions";
 import type { GeoData, LiveData } from "@/types/geo";
+import type { BreakdownResponse, Dimension } from "@/types/dimensions";
+import type { ActiveUsersResponse } from "@/types/active-users";
+import type { RevenueSummary } from "@/types/revenue";
 
 import { isDemoMode } from "./demo-mode";
 import { getDemoResponse } from "./demo-data";
@@ -22,40 +25,91 @@ async function fetchApi<T>(path: string): Promise<T> {
   return res.json();
 }
 
-function qs(params: Record<string, string | number | undefined>): string {
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined);
-  if (entries.length === 0) return "";
-  return "?" + entries.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
+type QueryValue = string | number | string[] | undefined;
+
+/**
+ * Builds a query string. Array values become repeated parameters, which is how
+ * the backend expects multiple `filter=key:value` entries.
+ */
+function qs(params: Record<string, QueryValue>): string {
+  const search = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) search.append(key, entry);
+    } else {
+      search.set(key, String(value));
+    }
+  }
+
+  const query = search.toString();
+  return query ? `?${query}` : "";
 }
 
+/** Filters applied on top of an endpoint's own parameters. */
+export type Filters = string[] | undefined;
+
 export const api = {
-  stats: (from?: string, to?: string) =>
-    fetchApi<StatsOverview>(`/query/stats${qs({ from, to })}`),
+  stats: (from?: string, to?: string, filter?: Filters) =>
+    fetchApi<StatsOverview>(`/query/stats${qs({ from, to, filter })}`),
 
-  timeseries: (from?: string, to?: string, interval?: TimeseriesInterval, event?: string) =>
-    fetchApi<{ timeseries: TimeseriesPoint[] }>(`/query/events/timeseries${qs({ from, to, interval, event })}`),
+  timeseries: (
+    from?: string,
+    to?: string,
+    interval?: TimeseriesInterval,
+    event?: string,
+    filter?: Filters,
+  ) =>
+    fetchApi<{ timeseries: TimeseriesPoint[] }>(
+      `/query/events/timeseries${qs({ from, to, interval, event, filter })}`,
+    ),
 
-  topEvents: (from?: string, to?: string, limit?: number) =>
-    fetchApi<{ events: TopEvent[] }>(`/query/events/top${qs({ from, to, limit })}`),
+  topEvents: (from?: string, to?: string, limit?: number, filter?: Filters) =>
+    fetchApi<{ events: TopEvent[] }>(`/query/events/top${qs({ from, to, limit, filter })}`),
 
-  eventNames: () =>
-    fetchApi<{ names: string[] }>("/query/events/names"),
+  eventNames: () => fetchApi<{ names: string[] }>("/query/events/names"),
 
-  events: (params?: { event?: string; user_id?: string; from?: string; to?: string; limit?: number; offset?: number }) =>
-    fetchApi<{ events: EventResult[] }>(`/query/events${qs(params || {})}`),
+  events: (params?: {
+    event?: string;
+    user_id?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+    filter?: Filters;
+  }) => fetchApi<{ events: EventResult[] }>(`/query/events${qs({ ...(params ?? {}) })}`),
 
-  funnel: (steps: string[], from?: string, to?: string) =>
-    fetchApi<{ funnel: FunnelStep[] }>(`/query/funnel${qs({ steps: steps.join(","), from, to })}`),
+  funnel: (steps: string[], from?: string, to?: string, window?: string, filter?: Filters, breakdown?: string) =>
+    fetchApi<FunnelResponse>(
+      `/query/funnel${qs({ steps: steps.join(","), from, to, window, filter, breakdown })}`,
+    ),
 
-  sessions: (user_id: string) =>
-    fetchApi<{ sessions: Session[] }>(`/query/sessions${qs({ user_id })}`),
+  sessions: (user_id: string) => fetchApi<{ sessions: Session[] }>(`/query/sessions${qs({ user_id })}`),
 
   retention: (from?: string, to?: string) =>
     fetchApi<{ retention: RetentionCohort[] }>(`/query/retention${qs({ from, to })}`),
 
-  geo: (from?: string, to?: string, group_by?: "country" | "city") =>
-    fetchApi<{ geo: GeoData[] }>(`/query/geo${qs({ from, to, group_by })}`),
+  geo: (from?: string, to?: string, group_by?: "country" | "city", filter?: Filters) =>
+    fetchApi<{ geo: GeoData[] }>(`/query/geo${qs({ from, to, group_by, filter })}`),
 
-  live: () =>
-    fetchApi<LiveData>("/query/live"),
+  breakdown: (
+    key: string,
+    from?: string,
+    to?: string,
+    event?: string,
+    filter?: Filters,
+    limit?: number,
+  ) => fetchApi<BreakdownResponse>(`/query/breakdown${qs({ key, from, to, event, filter, limit })}`),
+
+  dimensions: (from?: string, to?: string) =>
+    fetchApi<{ dimensions: Dimension[] }>(`/query/dimensions${qs({ from, to })}`),
+
+  activeUsers: (from?: string, to?: string, filter?: Filters) =>
+    fetchApi<ActiveUsersResponse>(`/query/active-users${qs({ from, to, filter })}`),
+
+  revenue: (from?: string, to?: string, currency?: string, filter?: Filters, interval?: string) =>
+    fetchApi<RevenueSummary>(`/query/revenue${qs({ from, to, currency, filter, interval })}`),
+
+  live: () => fetchApi<LiveData>("/query/live"),
 };

@@ -22,7 +22,6 @@ import {
   Cloud,
   Wrench,
   Gauge,
-  Lock,
   AlertTriangle,
 } from "lucide-react";
 
@@ -40,8 +39,7 @@ const cloudSidebar = [
 
 const selfHostSidebar = [
   { id: "quick-start", label: "Quick Start", icon: Terminal },
-  { id: "server-setup", label: "Server Setup", icon: Lock },
-  { id: "hosting", label: "Production Deploy", icon: Globe },
+  { id: "hosting", label: "Self-Hosting", icon: Globe },
   { id: "capacity", label: "Capacity & Scaling", icon: Gauge },
   { id: "geoip", label: "GeoIP Setup", icon: MapPin },
   { id: "config", label: "Configuration", icon: Key },
@@ -232,8 +230,8 @@ export default function DocsPage() {
             </p>
 
             <p className="text-sm pt-2">
-              <strong>2. Create your first project.</strong> After signup
-              you&apos;re dropped into the dashboard. Click{" "}
+              <strong>2. Create your first project.</strong>{" "}
+              After signup you&apos;re dropped into the dashboard. Click{" "}
               <strong>&quot;New Project&quot;</strong>, give it a name, and
               submit. You&apos;ll immediately see two keys:
             </p>
@@ -269,8 +267,8 @@ export default function DocsPage() {
                 React Native SDK
               </a>{" "}
               below — install the package, paste your{" "}
-              <code className="font-mono text-xs">rk_…</code> key, and you&apos;re
-              tracking events. Your endpoint URL is{" "}
+              <code className="font-mono text-xs">rk_…</code>{" "}
+              key, and you&apos;re tracking events. Your endpoint URL is{" "}
               <code className="font-mono text-xs">
                 https://app.bananalytics.xyz
               </code>
@@ -279,8 +277,9 @@ export default function DocsPage() {
 
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-sm">
-                <strong>Looking for the infra docs?</strong> Cloud users
-                don&apos;t need to think about Postgres, Docker, or GeoIP —
+                <strong>Looking for the infra docs?</strong>{" "}
+                Cloud users don&apos;t need to think about Postgres, Docker, or
+                GeoIP —
                 that&apos;s all managed for you. Switch to the{" "}
                 <button
                   onClick={() => handlePathChange("self-host")}
@@ -301,16 +300,44 @@ export default function DocsPage() {
             title="Quick Start"
             id="quick-start"
           >
-            <p>Get Bananalytics running in 5 minutes with Docker.</p>
-            <CodeBlock title="1. Clone & start the backend">{`git clone https://github.com/bananalytics-analytics/bananalytics.git
+            <p>
+              Get Bananalytics running locally in 5 minutes with Docker. For a
+              real deployment, see{" "}
+              <a href="#hosting" className="text-primary hover:underline">
+                Self-Hosting
+              </a>
+              .
+            </p>
+            <CodeBlock title="1. Clone and configure">{`git clone https://github.com/TableTennisCoder/bananalytics.git
 cd bananalytics/server
-docker-compose up -d`}</CodeBlock>
+cp .env.example .env`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
-              That&apos;s it for the backend. Postgres + the Go server start
-              together, and database migrations are applied automatically on
-              startup — no manual SQL needed. Verify with{" "}
+              Set the two required values in{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                docker-compose logs bananalytics
+                .env
+              </code>
+              . There are no defaults for them, so Compose stops with a message
+              naming the missing one rather than starting up insecure. Locally,{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                *
+              </code>{" "}
+              is a fine CORS value:
+            </p>
+            <CodeBlock>{`BANANA_DB_PASSWORD=$(openssl rand -hex 24)
+BANANA_CORS_ORIGINS=*`}</CodeBlock>
+            <CodeBlock title="2. Start it">{`docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              The dev overlay publishes the API on 8080 and the dashboard on
+              3000 and skips HTTPS, which you do not want in production &mdash;
+              plain{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                docker compose up -d
+              </code>{" "}
+              puts everything behind Caddy instead. Postgres and the Go server
+              start together and database migrations apply automatically &mdash;
+              no manual SQL. Verify with{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                docker compose logs bananalytics
               </code>{" "}
               — you should see{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
@@ -324,7 +351,7 @@ docker-compose up -d`}</CodeBlock>
             </p>
 
             <p className="text-sm pt-2">
-              <strong>2. Create your admin account.</strong> Open{" "}
+              <strong>3. Create your admin account.</strong> Open{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                 http://localhost:3000
               </code>{" "}
@@ -343,10 +370,11 @@ docker-compose up -d`}</CodeBlock>
             </p>
 
             <p className="text-sm pt-2">
-              <strong>3. Create your first project.</strong> After signup
-              you&apos;re dropped into the dashboard. Click{" "}
-              <strong>&quot;New Project&quot;</strong> (or use the project
-              switcher in the topbar), give it a name, and submit. You&apos;ll
+              <strong>4. Create your first project.</strong>{" "}
+              After signup you&apos;re dropped into the dashboard. Click{" "}
+              <strong>&quot;New Project&quot;</strong>{" "}
+              (or use the project switcher in the topbar), give it a name, and
+              submit. You&apos;ll
               immediately see two keys:
             </p>
             <ul className="space-y-1.5 text-sm pl-2">
@@ -382,8 +410,8 @@ docker-compose up -d`}</CodeBlock>
                 React Native SDK
               </a>{" "}
               section below — install the package, paste your{" "}
-              <code className="font-mono text-xs">rk_…</code> key, and you&apos;re
-              tracking events.
+              <code className="font-mono text-xs">rk_…</code>{" "}
+              key, and you&apos;re tracking events.
             </p>
           </DocSection>
           )}
@@ -391,177 +419,92 @@ docker-compose up -d`}</CodeBlock>
           {/* Self-Host infrastructure — only visible in self-host path */}
           {path === "self-host" && (
           <>
-          {/* Server Setup — Ubuntu hardening before installing Bananalytics */}
-          <DocSection
-            icon={<Lock className="h-5 w-5" />}
-            title="Server Setup"
-            id="server-setup"
-          >
-            <p>
-              Before installing Bananalytics on a fresh VPS, harden Ubuntu so
-              you&apos;re not running production on root with a wide-open
-              firewall. If your server is already locked down (non-root sudo
-              user, key-only SSH, UFW, fail2ban), skip ahead to{" "}
-              <a href="#hosting" className="text-primary hover:underline">
-                Production Deploy
-              </a>
-              .
-            </p>
-
-            <h4 className="text-base font-semibold mt-8 mb-3">
-              1. First login + system update
-            </h4>
-            <CodeBlock>{`ssh root@your-new-vps-ip
-apt update && apt upgrade -y
-apt autoremove -y`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              2. Create a non-root sudo user
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              Don&apos;t use root for daily work. Replace{" "}
-              <code className="font-mono text-xs">max</code> with whatever
-              username you want.
-            </p>
-            <CodeBlock>{`adduser max          # set a password when prompted (used for sudo)
-usermod -aG sudo max`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              3. Copy your SSH key to the new user
-            </h4>
-            <CodeBlock>{`mkdir -p /home/max/.ssh
-cp /root/.ssh/authorized_keys /home/max/.ssh/authorized_keys
-chown -R max:max /home/max/.ssh
-chmod 700 /home/max/.ssh
-chmod 600 /home/max/.ssh/authorized_keys`}</CodeBlock>
-            <p className="text-sm text-muted-foreground">
-              Test from your laptop in a <strong>new terminal</strong> (keep
-              the root session open as a fallback):{" "}
-              <code className="font-mono text-xs">ssh max@your-vps-ip</code>
-            </p>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              4. Lock down SSH (disable root + password auth)
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              Add a drop-in config (cleanest — won&apos;t be overwritten by
-              cloud-init updates):
-            </p>
-            <CodeBlock>{`sudo tee /etc/ssh/sshd_config.d/00-hardening.conf > /dev/null <<EOF
-PermitRootLogin no
-PasswordAuthentication no
-PubkeyAuthentication yes
-EOF
-
-sudo sshd -t                # must print nothing
-sudo systemctl reload ssh`}</CodeBlock>
-            <p className="text-sm text-muted-foreground">
-              From a <strong>new terminal</strong>:{" "}
-              <code className="font-mono text-xs">ssh root@your-vps-ip</code>{" "}
-              must fail with &ldquo;Permission denied&rdquo;;{" "}
-              <code className="font-mono text-xs">ssh max@your-vps-ip</code>{" "}
-              must succeed. Only then close the existing root session.
-            </p>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              5. Firewall (UFW)
-            </h4>
-            <CodeBlock>{`sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp        # SSH
-sudo ufw allow 80/tcp        # HTTP (Caddy needs for Let's Encrypt)
-sudo ufw allow 443/tcp       # HTTPS
-sudo ufw --force enable
-sudo ufw status verbose`}</CodeBlock>
-            <p className="text-sm text-muted-foreground">
-              Don&apos;t open 5432, 8080, or 3000 — Bananalytics binds those
-              to the internal Docker network only. They should never be
-              publicly reachable.
-            </p>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              6. Fail2ban (brute-force protection)
-            </h4>
-            <CodeBlock>{`sudo apt install -y fail2ban
-sudo systemctl enable --now fail2ban
-sudo fail2ban-client status sshd  # see banned IPs anytime`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              7. Automatic security updates
-            </h4>
-            <CodeBlock>{`sudo apt install -y unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades
-# Press ENTER when asked "Automatically install stable updates? Yes"`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              8. Timezone, hostname, swap
-            </h4>
-            <CodeBlock>{`# Set your timezone (affects log timestamps)
-sudo timedatectl set-timezone Europe/Berlin
-
-# Memorable hostname
-sudo hostnamectl set-hostname bananalytics-prod
-
-# 2 GB swap file — safety net for the 4 GB box
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-6 mb-3">
-              9. Useful tools + reboot
-            </h4>
-            <CodeBlock>{`sudo apt install -y htop ncdu git curl wget tmux jq
-sudo reboot`}</CodeBlock>
-            <p className="text-sm text-muted-foreground">
-              Wait ~30 seconds, SSH back in as your new user. The box is now
-              ready for the Bananalytics install. Continue to{" "}
-              <a href="#hosting" className="text-primary hover:underline">
-                Production Deploy
-              </a>
-              .
-            </p>
-
-            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
-              <p className="text-sm">
-                <strong>Realistic time:</strong> ~10 minutes if you copy-paste
-                straight through. Once you&apos;ve done it once, it&apos;s a
-                5-minute ritual for any new box.
-              </p>
-            </div>
-          </DocSection>
-
-          {/* Production Deploy — install Bananalytics on the prepared VPS */}
+          {/* Self-Hosting — installing Bananalytics on a server you already run */}
           <DocSection
             icon={<Globe className="h-5 w-5" />}
-            title="Production Deploy"
+            title="Self-Hosting"
             id="hosting"
           >
             <p>
-              Deploy Bananalytics on any Ubuntu VPS with Docker. Recommended:
-              Hetzner CX22 (2 vCPU, 4 GB, 40 GB) at €4.75/month.
+              Four containers on one machine, started with a single command.
+              Caddy is the only thing exposed to the internet; everything else
+              lives on the internal Docker network.
             </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              Server requirements
+            </h4>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium w-32" />
+                    <th className="px-4 py-2 text-left font-medium">Minimum</th>
+                    <th className="px-4 py-2 text-left font-medium">Recommended</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="px-4 py-2 font-medium">CPU</td>
+                    <td className="px-4 py-2 text-muted-foreground">1 vCPU</td>
+                    <td className="px-4 py-2 text-muted-foreground">2 vCPU</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">RAM</td>
+                    <td className="px-4 py-2 text-muted-foreground">2 GB (add swap)</td>
+                    <td className="px-4 py-2 text-muted-foreground">4 GB</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">Disk</td>
+                    <td className="px-4 py-2 text-muted-foreground">20 GB SSD</td>
+                    <td className="px-4 py-2 text-muted-foreground">40 GB SSD</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">OS</td>
+                    <td className="px-4 py-2 text-muted-foreground" colSpan={2}>
+                      Anything that runs Docker Engine 24+ with the Compose plugin
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <p className="text-sm text-muted-foreground">
-              <strong>This guide assumes a hardened VPS</strong> — non-root
-              sudo user, key-only SSH, UFW with ports 22/80/443 open. If your
-              server isn&apos;t set up yet, follow{" "}
-              <a href="#server-setup" className="text-primary hover:underline">
-                Server Setup
+              The stack idles at ~830 MB and peaks around 1.3&ndash;1.7 GB under
+              load, so 2 GB works but leaves little headroom. A Hetzner CX22
+              (2 vCPU / 4 GB / 40 GB, €4.75/month) is the sweet spot and holds
+              roughly 30&ndash;40 million stored events. Disk is what runs out
+              first &mdash; budget about 1 GB per million events, and see{" "}
+              <a href="#capacity" className="text-primary hover:underline">
+                Capacity &amp; Scaling
               </a>{" "}
-              first.
+              before you grow.
             </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              Before you start
+            </h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <strong className="text-foreground">Docker Engine + Compose plugin</strong>{" "}
+                installed, and your user able to run{" "}
+                <code className="font-mono text-xs">docker</code>.
+              </li>
+              <li>
+                <strong className="text-foreground">A domain</strong> with an A
+                record already pointing at the server. Caddy cannot obtain a
+                certificate before DNS resolves, so do this first and verify with{" "}
+                <code className="font-mono text-xs">dig analytics.yourdomain.com +short</code>.
+              </li>
+              <li>
+                <strong className="text-foreground">Ports 80 and 443 reachable</strong>{" "}
+                from the internet. Nothing else needs to be open &mdash; the
+                database, API and dashboard are never published to the host.
+              </li>
+            </ul>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
               What you&apos;re deploying
             </h4>
-            <p className="text-sm text-muted-foreground">
-              Four containers, all on one VPS. Caddy is the only thing exposed
-              to the internet — everything else lives on the internal Docker
-              network.
-            </p>
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
                 <thead>
@@ -580,7 +523,7 @@ sudo reboot`}</CodeBlock>
                   <tr>
                     <td className="px-4 py-2 font-mono text-xs">dashboard</td>
                     <td className="px-4 py-2 text-muted-foreground">3000 (internal)</td>
-                    <td className="px-4 py-2 text-muted-foreground">Next.js admin UI. Login, project management, charts, retention, geography, settings.</td>
+                    <td className="px-4 py-2 text-muted-foreground">Next.js admin UI. Login, project management, funnels, breakdowns, revenue, retention, geography, settings.</td>
                   </tr>
                   <tr>
                     <td className="px-4 py-2 font-mono text-xs">bananalytics</td>
@@ -590,38 +533,14 @@ sudo reboot`}</CodeBlock>
                   <tr>
                     <td className="px-4 py-2 font-mono text-xs">postgres</td>
                     <td className="px-4 py-2 text-muted-foreground">5432 (internal)</td>
-                    <td className="px-4 py-2 text-muted-foreground">PostgreSQL 16. Stores users, projects, sessions, and the partitioned events table. Migrations apply automatically on backend startup.</td>
+                    <td className="px-4 py-2 text-muted-foreground">PostgreSQL 16. Users, projects, sessions and the partitioned events table. Migrations apply automatically when the backend starts.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
-              1. Add a DNS A record
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              In your DNS provider, point the subdomain you want (e.g.{" "}
-              <code className="font-mono text-xs">analytics.yourdomain.com</code>
-              ) at your VPS IP. Verify after ~1 minute:
-            </p>
-            <CodeBlock>{`dig analytics.yourdomain.com +short
-# should print your VPS IP`}</CodeBlock>
-            <p className="text-sm text-muted-foreground">
-              Critical: Caddy can&apos;t fetch a Let&apos;s Encrypt cert until
-              DNS resolves correctly.
-            </p>
-
-            <h4 className="text-base font-semibold mt-8 mb-3">
-              2. Install Docker
-            </h4>
-            <CodeBlock>{`curl -fsSL https://get.docker.com | sh
-
-# Let your sudo user run docker without sudo
-sudo usermod -aG docker $USER
-exit  # then SSH back in for group membership to take effect`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-8 mb-3">
-              3. Clone the repo
+              1. Clone the repo
             </h4>
             <CodeBlock>{`sudo mkdir -p /opt/bananalytics
 sudo chown $USER:$USER /opt/bananalytics
@@ -629,45 +548,55 @@ cd /opt/bananalytics
 git clone https://github.com/TableTennisCoder/bananalytics.git .`}</CodeBlock>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
-              4. Configure env vars
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              Create{" "}
-              <code className="font-mono text-xs">
-                /opt/bananalytics/server/.env
-              </code>
-              :
-            </p>
-            <CodeBlock>{`# Caddy uses this for the SSL cert hostname
-BANANA_DOMAIN=analytics.yourdomain.com
-
-# Origins allowed to call the API (your dashboard + marketing site)
-BANANA_CORS_ORIGINS=https://analytics.yourdomain.com,https://yourdomain.com
-
-BANANA_LOG_LEVEL=info`}</CodeBlock>
-
-            <h4 className="text-base font-semibold mt-8 mb-3">
-              5. (Optional) Copy GeoIP database
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              Without this, country/city features show empty data. From your
-              local machine:
-            </p>
-            <CodeBlock>{`scp ./server/geoip/GeoLite2-City.mmdb \\
-    user@your-vps-ip:/opt/bananalytics/server/geoip/`}</CodeBlock>
-            <p className="text-sm text-muted-foreground">
-              See <a href="#geoip" className="text-primary hover:underline">GeoIP Setup</a> for how to download the database.
-            </p>
-
-            <h4 className="text-base font-semibold mt-8 mb-3">
-              6. Build and start
+              2. Configure
             </h4>
             <CodeBlock>{`cd /opt/bananalytics/server
-docker compose up -d --build`}</CodeBlock>
+cp .env.example .env`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
-              First build takes ~3-4 minutes. Then check:
+              Two values are required and have no defaults &mdash; Compose
+              refuses to start without them rather than falling back to
+              something insecure. Generate the password with{" "}
+              <code className="font-mono text-xs">openssl rand -hex 24</code>{" "}
+              and keep it hex or alphanumeric, since it goes into a connection
+              URL.
             </p>
-            <CodeBlock>{`docker compose ps           # all 4 services should be "healthy"
+            <CodeBlock>{`# Required
+BANANA_DB_PASSWORD=your-generated-password
+BANANA_CORS_ORIGINS=https://analytics.yourdomain.com
+
+# Domain Caddy provisions the certificate for
+BANANA_DOMAIN=analytics.yourdomain.com`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Native mobile apps send no Origin header, so{" "}
+              <code className="font-mono text-xs">BANANA_CORS_ORIGINS</code>{" "}
+              only needs the origins that call the API from a browser. See{" "}
+              <a href="#config" className="text-primary hover:underline">
+                Configuration
+              </a>{" "}
+              for every variable.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              3. (Optional) GeoIP database
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Without it the geography page and the globe stay empty; nothing
+              else is affected. Put your MaxMind key in{" "}
+              <code className="font-mono text-xs">.env</code> and run:
+            </p>
+            <CodeBlock>{`./scripts/download-geoip.sh`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              See <a href="#geoip" className="text-primary hover:underline">GeoIP Setup</a> for the license key.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              4. Build and start
+            </h4>
+            <CodeBlock>{`docker compose up -d --build`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              The first build takes ~3&ndash;4 minutes. Then check:
+            </p>
+            <CodeBlock>{`docker compose ps
 docker compose logs --tail 50
 
 # Look for:
@@ -677,58 +606,58 @@ docker compose logs --tail 50
 #   caddy         → "certificate obtained successfully"`}</CodeBlock>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
-              7. Claim your instance — DO THIS IMMEDIATELY
+              5. Claim your instance &mdash; do this immediately
             </h4>
             <p className="text-sm">
-              The{" "}
-              <code className="font-mono text-xs">/setup</code> endpoint is{" "}
-              <strong>publicly reachable until the first admin is created</strong>
-              . If anyone else hits it before you, they own the instance.
-            </p>
-            <p className="text-sm">
-              Open in your browser <strong>right now</strong>:
+              <code className="font-mono text-xs">/setup</code> is{" "}
+              <strong>publicly reachable until the first admin exists</strong>.
+              Whoever reaches it first owns the instance, so open it as soon as
+              the stack is up:
             </p>
             <CodeBlock>{`https://analytics.yourdomain.com/setup`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
-              Register your admin user. From then on,{" "}
-              <code className="font-mono text-xs">/setup</code> returns 410
-              Gone forever.
+              Register your admin user, then create a project and copy its keys.
+              The secret key is shown once. From then on{" "}
+              <code className="font-mono text-xs">/setup</code> returns 410 Gone
+              permanently.
             </p>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
-              8. Daily Postgres backup
+              6. Schedule backups
             </h4>
             <p className="text-sm text-muted-foreground">
-              Add to root&apos;s crontab (
-              <code className="font-mono text-xs">sudo crontab -e</code>):
+              Nothing backs up on its own. The repo ships a dump script &mdash;
+              schedule it, and point{" "}
+              <code className="font-mono text-xs">BANANA_BACKUP_REMOTE</code> at
+              an rclone remote, because a copy on the same disk as the database
+              does not survive losing that disk.
             </p>
-            <CodeBlock>{`0 3 * * * docker exec server-postgres-1 pg_dump -U bananalytics bananalytics | gzip > /opt/backups/bananalytics-$(date +\\%F).sql.gz && find /opt/backups -name "bananalytics-*.sql.gz" -mtime +14 -delete`}</CodeBlock>
+            <CodeBlock>{`# crontab -e
+30 3 * * * cd /opt/bananalytics/server && ./scripts/backup.sh 2>&1 | logger -t bananalytics-backup`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
-              Daily backup at 3 AM, keeps 14 days of history. Don&apos;t
-              forget <code className="font-mono text-xs">sudo mkdir -p /opt/backups</code>{" "}
-              first.
+              Restoring replaces the database with a dump:{" "}
+              <code className="font-mono text-xs">./scripts/restore.sh backups/bananalytics-….sql.gz</code>.
+              Test it once on a throwaway machine before you ever need it.
             </p>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
-              How to deploy updates
+              Deploying updates
             </h4>
             <CodeBlock>{`cd /opt/bananalytics
 git pull
 cd server
 docker compose up -d --build`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
-              ~30 seconds for code-only changes (cached layers), ~3 minutes for
-              dependency changes.
+              Database migrations run automatically when the backend starts, so
+              there is never a separate migration step. ~30 seconds for
+              code-only changes, ~3 minutes when dependencies changed.
             </p>
 
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-sm">
-                <strong>Realistic time for the full deploy:</strong> ~20
-                minutes (mostly DNS propagation + first Docker build). The
-                whole flow is one git pull + one docker command — no manual
-                database creation, no migration scripts, no SSL certs to
-                renew. Caddy + the Go backend&apos;s auto-migrations handle
-                it all.
+                <strong>Realistic time:</strong> ~10 minutes, most of it the
+                first Docker build. No manual database creation, no migration
+                scripts, no certificates to renew.
               </p>
             </div>
           </DocSection>
@@ -923,12 +852,12 @@ docker exec server-postgres-1 psql -U bananalytics -d bananalytics \\
   -c "SELECT pg_size_pretty(pg_database_size('bananalytics'));"
 
 # Slow queries (last 24h)
-docker-compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\\}"`}</CodeBlock>
+docker compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\\}"`}</CodeBlock>
 
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-sm">
-                <strong>Tip:</strong> Hetzner lets you resize the VM with the
-                data volume intact &mdash; ~30 seconds of downtime. No reason
+                <strong>Tip:</strong>{" "}
+                Hetzner lets you resize the VM with the data volume intact &mdash; ~30 seconds of downtime. No reason
                 to over-provision now. Start small, grow as needed.
               </p>
             </div>
@@ -996,7 +925,7 @@ docker-compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\
             <h4 className="text-base font-semibold mt-8 mb-3">
               3. Restart the server
             </h4>
-            <CodeBlock>{`docker-compose restart bananalytics`}</CodeBlock>
+            <CodeBlock>{`docker compose restart bananalytics`}</CodeBlock>
             <p>
               You should see{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
@@ -1019,7 +948,7 @@ docker-compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\
             </p>
             <CodeBlock title="Cron — first Sunday of every month, 3 AM">{`0 3 1-7 * 0 cd /path/to/bananalytics/server && \\
   MAXMIND_LICENSE_KEY=xxx ./scripts/download-geoip.sh && \\
-  docker-compose restart bananalytics`}</CodeBlock>
+  docker compose restart bananalytics`}</CodeBlock>
 
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-sm">
@@ -1047,18 +976,36 @@ docker-compose logs bananalytics --since 24h | grep -i "duration_ms.*[0-9]\\{4,\
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
+                  <ConfigRow option="BANANA_DB_PASSWORD" default="required" desc="Postgres password. No default — compose refuses to start without it. Only read when the data directory is first created" />
+                  <ConfigRow option="BANANA_CORS_ORIGINS" default="required" desc="Allowed browser origins, comma-separated. Native apps send no Origin and are unaffected" />
+                  <ConfigRow option="BANANA_DOMAIN" default="localhost" desc="Domain Caddy provisions the TLS certificate for" />
+                  <ConfigRow option="BANANA_DB_USER" default="bananalytics" desc="Postgres user" />
+                  <ConfigRow option="BANANA_DB_NAME" default="bananalytics" desc="Database name" />
+                  <ConfigRow option="BANANA_DB_DSN" default="derived" desc="Connection string. Built from the three values above by docker-compose" />
                   <ConfigRow option="BANANA_PORT" default="8080" desc="HTTP server port" />
-                  <ConfigRow option="BANANA_DB_DSN" default="required" desc="PostgreSQL connection string" />
                   <ConfigRow option="BANANA_LOG_LEVEL" default="info" desc="debug, info, warn, error" />
                   <ConfigRow option="BANANA_RATE_LIMIT_RPM" default="1000" desc="Requests/min per API key" />
                   <ConfigRow option="BANANA_IP_RATE_LIMIT_RPM" default="300" desc="Requests/min per IP" />
-                  <ConfigRow option="BANANA_CORS_ORIGINS" default="*" desc="Allowed origins" />
                   <ConfigRow option="BANANA_DB_MAX_CONNS" default="25" desc="Max DB connections" />
                   <ConfigRow option="BANANA_GEOIP_DB" default="" desc="Path to GeoLite2-City.mmdb" />
-                  <ConfigRow option="BANANA_DOMAIN" default="localhost" desc="Domain for Caddy HTTPS" />
+                  <ConfigRow option="MAXMIND_LICENSE_KEY" default="" desc="Used by scripts/download-geoip.sh" />
+                  <ConfigRow option="BANANA_BACKUP_DIR" default="./backups" desc="Where scripts/backup.sh writes dumps" />
+                  <ConfigRow option="BANANA_BACKUP_RETENTION_DAYS" default="14" desc="How long local dumps are kept" />
+                  <ConfigRow option="BANANA_BACKUP_REMOTE" default="" desc="rclone remote for off-site copies" />
                 </tbody>
               </table>
             </div>
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Changing the database password later:</strong>{" "}
+              Postgres only reads{" "}
+              <code className="font-mono text-xs">BANANA_DB_PASSWORD</code> when
+              it initialises an empty data directory. Editing{" "}
+              <code className="font-mono text-xs">.env</code>{" "}
+              afterwards leaves the existing user untouched and the backend then fails to connect
+              &mdash; change it in the database too:
+            </p>
+            <CodeBlock>{`docker compose exec postgres psql -U bananalytics -d postgres \\
+  -c "ALTER USER bananalytics WITH PASSWORD 'your-new-password';"`}</CodeBlock>
           </DocSection>
           </>
           )}
@@ -1171,6 +1118,20 @@ Bananalytics.track('purchase_completed', {
   currency: 'USD',
 });
 
+## 7. Track revenue
+
+For anything that earns money, use trackRevenue so the amount lands in the
+revenue reports instead of staying an ordinary property:
+
+Bananalytics.trackRevenue(49.99, 'USD', { product_id: 'pro_monthly' });
+
+Refunds are negative amounts:
+Bananalytics.trackRevenue(-49.99, 'USD', { order_id: 'ord_123' }, '$refund');
+
+Any event works too — adding revenue and currency properties to your own
+event has the same effect:
+Bananalytics.track('subscription_renewed', { revenue: 9.99, currency: 'EUR' });
+
 ## Rules
 - Polyfill import MUST be the first line of the entry file
 - Use the static Bananalytics.* API only — do NOT add BananalyticsProvider
@@ -1241,8 +1202,11 @@ Bananalytics.track('button_clicked', { button: 'signup' });
 // Track screen views
 Bananalytics.screen('HomeScreen');
 
-// Identify users
+// Identify users — links their earlier anonymous events to them
 Bananalytics.identify('user-123', { plan: 'pro' });
+
+// Track revenue (negative amounts record refunds)
+Bananalytics.trackRevenue(9.99, 'EUR', { product_id: 'pro_monthly' });
 
 // Flush events immediately
 await Bananalytics.flush();`}</CodeBlock>
@@ -1642,16 +1606,85 @@ Bananalytics.track('payment_failed', {
               responseExample={`{ "events": [{ "event": "button_clicked", "count": 1523 }] }`}
             />
 
-            <EndpointDoc method="GET" path="/v1/query/funnel" auth="Secret Key" description="Funnel conversion analysis."
+            <EndpointDoc method="GET" path="/v1/query/funnel" auth="Secret Key" description="Ordered funnel conversion. A person only counts for a step once they have completed the previous one, and must finish the whole funnel within the conversion window — so a later step can never report more people than an earlier one. Pass breakdown to get one funnel per segment."
               params={[
-                { name: "steps", type: "string", required: true, desc: "Comma-separated event names" },
+                { name: "steps", type: "string", required: true, desc: "2-10 comma-separated event names, in order" },
+                { name: "window", type: "string", required: false, desc: "Conversion window measured from step 1: 30m, 24h, 7d (default), 2w, or none" },
+                { name: "breakdown", type: "string", required: false, desc: "Dimension to compare segments by, e.g. platform" },
+                { name: "filter", type: "string", required: false, desc: "Repeatable key:value segment filter" },
                 { name: "from", type: "ISO 8601", required: false, desc: "Start of range" },
                 { name: "to", type: "ISO 8601", required: false, desc: "End of range" },
               ]}
               responseExample={`{
+  "window_seconds": 604800,
   "funnel": [
-    { "step": "signup_start", "count": 500 },
-    { "step": "signup_complete", "count": 180 }
+    { "step": "signup_start", "count": 500,
+      "conversion_rate": 100, "step_conversion_rate": 100, "dropped": 0 },
+    { "step": "signup_complete", "count": 180,
+      "conversion_rate": 36, "step_conversion_rate": 36, "dropped": 320,
+      "median_seconds_from_prev": 42 }
+  ]
+}`}
+            />
+
+            <EndpointDoc method="GET" path="/v1/query/breakdown" auth="Secret Key" description="Ranks a dimension's values by volume, people or revenue. This is what turns an aggregate into an explanation: not 500 people dropped off, but 450 of them were on one platform."
+              params={[
+                { name: "key", type: "string", required: true, desc: "Dimension: platform, app_version, country, properties.your_key, …" },
+                { name: "event", type: "string", required: false, desc: "Restrict to a single event name" },
+                { name: "filter", type: "string", required: false, desc: "Repeatable key:value segment filter" },
+                { name: "limit", type: "number", required: false, desc: "Max values returned (default and max 100)" },
+                { name: "from", type: "ISO 8601", required: false, desc: "Start of range" },
+                { name: "to", type: "ISO 8601", required: false, desc: "End of range" },
+              ]}
+              responseExample={`{
+  "key": "platform", "label": "Platform",
+  "breakdown": [
+    { "value": "ios", "count": 30070, "unique_users": 4773,
+      "revenue": 3976.55, "paying_users": 163 },
+    { "value": "android", "count": 18430, "unique_users": 2925,
+      "revenue": 812.30, "paying_users": 41 }
+  ]
+}`}
+            />
+
+            <EndpointDoc method="GET" path="/v1/query/dimensions" auth="Secret Key" description="Every dimension available for breakdowns and filters — the built-in shorthands plus the custom event properties your app actually sends."
+              responseExample={`{
+  "dimensions": [
+    { "key": "platform", "label": "Platform", "group": "Device" },
+    { "key": "properties.plan", "label": "plan", "group": "Custom" }
+  ]
+}`}
+            />
+
+            <EndpointDoc method="GET" path="/v1/query/revenue" auth="Secret Key" description="Revenue, paying people and the per-person averages. Figures cover a single currency: amounts are never summed across currencies without an exchange rate."
+              params={[
+                { name: "currency", type: "string", required: false, desc: "ISO 4217 code. Defaults to the currency with the most revenue in range" },
+                { name: "interval", type: "string", required: false, desc: "Timeseries bucket: minute, hour, or day (default)" },
+                { name: "filter", type: "string", required: false, desc: "Repeatable key:value segment filter" },
+                { name: "from", type: "ISO 8601", required: false, desc: "Start of range" },
+                { name: "to", type: "ISO 8601", required: false, desc: "End of range" },
+              ]}
+              responseExample={`{
+  "currency": "EUR", "available_currencies": ["EUR", "USD"],
+  "total_revenue": 31602.55, "transactions": 1495,
+  "paying_users": 1106, "active_users": 12400,
+  "arpu": 2.55, "arppu": 28.57,
+  "average_order_value": 21.14, "paying_share": 8.9,
+  "timeseries": [{ "bucket": "2026-08-01", "revenue": 942.10,
+                   "transactions": 44, "paying_users": 36 }]
+}`}
+            />
+
+            <EndpointDoc method="GET" path="/v1/query/active-users" auth="Secret Key" description="Daily, weekly and monthly active people. WAU and MAU are rolling windows, not calendar buckets. Stickiness is DAU as a percentage of MAU — how much of your monthly audience shows up on a given day."
+              params={[
+                { name: "filter", type: "string", required: false, desc: "Repeatable key:value segment filter" },
+                { name: "from", type: "ISO 8601", required: false, desc: "Start of range (max 365 days)" },
+                { name: "to", type: "ISO 8601", required: false, desc: "End of range" },
+              ]}
+              responseExample={`{
+  "active_users": [
+    { "bucket": "2026-08-30", "dau": 1204, "wau": 4093,
+      "mau": 10594, "stickiness": 11.4 }
   ]
 }`}
             />

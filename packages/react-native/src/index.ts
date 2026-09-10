@@ -75,6 +75,28 @@ export const Bananalytics = {
   },
 
   /**
+   * Tracks a purchase or any other event that earned money.
+   *
+   * @param amount - The monetary value. Negative amounts record refunds.
+   * @param currency - ISO 4217 code, e.g. 'USD' or 'EUR'
+   * @param properties - Optional extra properties, such as the product ID
+   * @param eventName - Event name to record it under
+   *
+   * @example
+   * ```ts
+   * Bananalytics.trackRevenue(9.99, 'EUR', { product_id: 'pro_monthly' });
+   * ```
+   */
+  trackRevenue(
+    amount: number,
+    currency?: string,
+    properties?: Properties,
+    eventName?: string,
+  ): void {
+    instance?.trackRevenue(amount, currency, properties, eventName);
+  },
+
+  /**
    * Identifies the current user.
    *
    * @param userId - The user identifier

@@ -6,16 +6,15 @@ import { POLL_INTERVAL } from "@/lib/constants";
 import { useFilters } from "@/providers/filter-provider";
 import { useTimeRange } from "./use-time-range";
 
-export function useGeo(groupBy: "country" | "city" = "country", from?: string, to?: string) {
-  const defaults = useTimeRange(7);
-  const f = from || defaults.from;
-  const t = to || defaults.to;
+/** The DAU/WAU/MAU curve — how many people use the app, not how many events fire. */
+export function useActiveUsers(days = 30) {
+  const { from, to } = useTimeRange(days);
   const { params } = useFilters();
 
   return useQuery({
-    queryKey: ["geo", groupBy, f, t, params],
-    queryFn: () => api.geo(f, t, groupBy, params),
+    queryKey: ["activeUsers", from, to, params],
+    queryFn: () => api.activeUsers(from, to, params),
     refetchInterval: POLL_INTERVAL.DEFAULT,
-    select: (data) => data.geo,
+    select: (data) => data.active_users,
   });
 }

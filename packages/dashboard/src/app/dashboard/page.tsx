@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Users, Radio, Zap, Globe, TrendingUp } from "lucide-react";
+import { Activity, Users, Radio, Zap, Globe, TrendingUp, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,6 +11,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { FilterBar } from "@/components/dashboard/filter-bar";
+import { ActiveUsersChart } from "@/components/dashboard/active-users-chart";
 import { WorldMap } from "@/components/charts/world-map";
 import { useStats } from "@/hooks/use-stats";
 import { useTimeseries } from "@/hooks/use-timeseries";
@@ -18,6 +20,7 @@ import { useTopEvents } from "@/hooks/use-events";
 import { useLive } from "@/hooks/use-live";
 import { useGeo } from "@/hooks/use-geo";
 import { formatCompact, formatRelative, formatNumber } from "@/lib/format";
+import { formatMoney } from "@/types/revenue";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -47,10 +50,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <FilterBar />
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statsLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
+          Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="border-border">
               <CardContent className="p-5">
                 <Skeleton className="h-4 w-20" />
@@ -79,6 +84,11 @@ export default function DashboardPage() {
               title="Events / min"
               value={(stats?.events_per_minute ?? 0).toFixed(1)}
               icon={<Radio className="h-4 w-4" />}
+            />
+            <KpiCard
+              title="Revenue Today"
+              value={formatMoney(stats?.revenue ?? 0, stats?.top_currency ?? "")}
+              icon={<Wallet className="h-4 w-4" />}
             />
             <KpiCard
               title="Top Country"
@@ -186,6 +196,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Active people — the audience curve, independent of event volume */}
+      <ActiveUsersChart />
 
       {/* Row 3: Top Events + Globe */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -184,7 +184,10 @@ Bananalytics.init({
 // Track events
 Bananalytics.track('button_clicked', { button: 'signup' });
 Bananalytics.identify('user-123', { plan: 'pro' });
-Bananalytics.screen('HomeScreen');`}
+Bananalytics.screen('HomeScreen');
+
+// Track revenue — powers the Revenue page and revenue breakdowns
+Bananalytics.trackRevenue(9.99, 'EUR', { product_id: 'pro_monthly' });`}
             </pre>
           </div>
         </CardContent>

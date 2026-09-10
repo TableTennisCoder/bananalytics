@@ -5,6 +5,9 @@ export interface StatsOverview {
   active_sessions: number;
   events_per_minute: number;
   top_country: string;
+  /** Revenue in the same range, denominated in top_currency. */
+  revenue: number;
+  top_currency: string;
 }
 
 /** Configuration for chart date range and granularity. */

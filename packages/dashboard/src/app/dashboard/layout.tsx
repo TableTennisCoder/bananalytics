@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
 import { ProjectGuard } from "@/components/dashboard/project-guard";
+import { FilterProvider } from "@/providers/filter-provider";
 
 export default function DashboardLayout({
   children,
@@ -8,14 +9,16 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex-1 pl-60">
-        <Topbar />
-        <main className="p-6">
-          <ProjectGuard>{children}</ProjectGuard>
-        </main>
+    <FilterProvider>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex-1 pl-60">
+          <Topbar />
+          <main className="p-6">
+            <ProjectGuard>{children}</ProjectGuard>
+          </main>
+        </div>
       </div>
-    </div>
+    </FilterProvider>
   );
 }

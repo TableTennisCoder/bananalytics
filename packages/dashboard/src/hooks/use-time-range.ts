@@ -1,22 +1,25 @@
 "use client";
 
 import { useMemo } from "react";
+import { startOfUTCDay, utcDaysAgo } from "@/lib/constants";
 
 /**
- * Returns a stable time range for the last N days.
- * Rounded to the nearest minute to prevent infinite re-render loops.
+ * Returns a stable time range covering the last N whole days plus today so far.
+ *
+ * The range starts at a UTC midnight rather than at this moment N days ago. The
+ * charts already bucket by UTC day, so a mid-day start produced a first bar that
+ * held only part of a day and read as a drop. It also lets the backend answer
+ * from its daily rollups instead of scanning raw events.
+ *
+ * Rounded to the current minute so the value is stable across renders.
  */
 export function useTimeRange(days: number = 7) {
   return useMemo(() => {
     const now = new Date();
-    // Round to the current minute to keep the value stable across renders
     now.setSeconds(0, 0);
 
-    const from = new Date(now);
-    from.setDate(from.getDate() - days);
-
     return {
-      from: from.toISOString(),
+      from: utcDaysAgo(now, days).toISOString(),
       to: now.toISOString(),
     };
     // Re-compute only every minute by keying on the minute
@@ -25,17 +28,16 @@ export function useTimeRange(days: number = 7) {
 }
 
 /**
- * Returns a stable time range for today.
+ * Returns a stable time range for today, measured in UTC days to match how the
+ * backend buckets and aggregates.
  */
 export function useTodayRange() {
   return useMemo(() => {
     const now = new Date();
     now.setSeconds(0, 0);
 
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
     return {
-      from: start.toISOString(),
+      from: startOfUTCDay(now).toISOString(),
       to: now.toISOString(),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

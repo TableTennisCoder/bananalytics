@@ -6,16 +6,13 @@ import { POLL_INTERVAL } from "@/lib/constants";
 import { useFilters } from "@/providers/filter-provider";
 import { useTimeRange } from "./use-time-range";
 
-export function useGeo(groupBy: "country" | "city" = "country", from?: string, to?: string) {
-  const defaults = useTimeRange(7);
-  const f = from || defaults.from;
-  const t = to || defaults.to;
+export function useRevenue(days = 30, currency?: string, interval: "day" | "hour" = "day") {
+  const { from, to } = useTimeRange(days);
   const { params } = useFilters();
 
   return useQuery({
-    queryKey: ["geo", groupBy, f, t, params],
-    queryFn: () => api.geo(f, t, groupBy, params),
+    queryKey: ["revenue", from, to, currency, params, interval],
+    queryFn: () => api.revenue(from, to, currency || undefined, params, interval),
     refetchInterval: POLL_INTERVAL.DEFAULT,
-    select: (data) => data.geo,
   });
 }

@@ -24,12 +24,15 @@ export interface EventFilter {
 export interface TimeseriesPoint {
   bucket: string;
   count: number;
+  /** Distinct people active in this bucket, not just event volume. */
+  unique_users: number;
 }
 
 /** A top event by count. */
 export interface TopEvent {
   event: string;
   count: number;
+  unique_users: number;
 }
 
 /** Available interval granularities for timeseries. */

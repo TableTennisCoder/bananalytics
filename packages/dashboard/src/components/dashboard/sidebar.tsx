@@ -11,6 +11,8 @@ import {
   Globe,
   Radio,
   Route,
+  Layers,
+  Wallet,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +21,8 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/live", label: "Live", icon: Radio },
   { href: "/dashboard/events", label: "Events", icon: MousePointerClick },
+  { href: "/dashboard/breakdown", label: "Breakdown", icon: Layers },
+  { href: "/dashboard/revenue", label: "Revenue", icon: Wallet },
   { href: "/dashboard/funnels", label: "Funnels", icon: GitBranch },
   { href: "/dashboard/retention", label: "Retention", icon: Users },
   { href: "/dashboard/sessions", label: "Sessions", icon: Activity },

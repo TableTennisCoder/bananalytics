@@ -1,9 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isDemoMode } from "@/lib/demo-mode";
+import { DEMO_PROJECT } from "@/lib/demo-data";
 import type { Project, ProjectsListResponse, RotatedKeys } from "@/types/projects";
 
 async function fetchProjects(): Promise<Project[]> {
+  // The demo runs without a backend, so hand back the stub project rather than
+  // letting every page that needs one fail.
+  if (isDemoMode()) return [DEMO_PROJECT];
+
   const res = await fetch("/api/projects", { cache: "no-store" });
   if (!res.ok) throw new Error("failed to fetch projects");
   const data: ProjectsListResponse = await res.json();

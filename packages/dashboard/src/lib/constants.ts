@@ -18,23 +18,39 @@ export const POLL_INTERVAL = {
   DEFAULT: 30_000,
 } as const;
 
-/** Default time range: last 7 days. */
+/**
+ * Midnight UTC on the day `t` falls in.
+ *
+ * Ranges are anchored to UTC rather than to the viewer's local midnight because
+ * that is the day the backend aggregates by. Anchoring locally would ask for a
+ * window the daily rollups cannot express, sending every query back to a full
+ * scan of the raw events.
+ */
+export function startOfUTCDay(t: Date): Date {
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
+}
+
+/** Midnight UTC, `days` whole days before the day `t` falls in. */
+export function utcDaysAgo(t: Date, days: number): Date {
+  const start = startOfUTCDay(t);
+  start.setUTCDate(start.getUTCDate() - days);
+  return start;
+}
+
+/** Default time range: the last 7 whole days plus today so far. */
 export function defaultTimeRange(): { from: string; to: string } {
   const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - 7);
   return {
-    from: from.toISOString(),
+    from: utcDaysAgo(to, 7).toISOString(),
     to: to.toISOString(),
   };
 }
 
-/** Today's time range. */
+/** Today's time range, in UTC days. */
 export function todayTimeRange(): { from: string; to: string } {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return {
-    from: start.toISOString(),
+    from: startOfUTCDay(now).toISOString(),
     to: now.toISOString(),
   };
 }

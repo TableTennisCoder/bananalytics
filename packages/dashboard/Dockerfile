@@ -35,7 +35,10 @@ USER nextjs
 
 EXPOSE 3000
 
+# 127.0.0.1, not localhost: inside the container localhost resolves to ::1
+# as well, BusyBox wget tries IPv6 first, and next-server listens on IPv4
+# only — so the check failed forever while the app was serving fine.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/login || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/login || exit 1
 
 CMD ["node", "server.js"]

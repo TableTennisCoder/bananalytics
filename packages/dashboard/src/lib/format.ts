@@ -43,11 +43,17 @@ export function formatRelative(iso: string): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-/** Format seconds to a readable duration (e.g., "5m 32s"). */
+/** Format seconds to a readable duration (e.g., "5m 32s", "2d 4h"). */
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m}m`;
+  const total = Math.round(seconds);
+  if (total < 60) return `${total}s`;
+  if (total < 3600) return `${Math.floor(total / 60)}m ${total % 60}s`;
+  if (total < 86400) {
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    return `${h}h ${m}m`;
+  }
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  return `${d}d ${h}h`;
 }
