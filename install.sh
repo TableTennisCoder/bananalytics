@@ -339,10 +339,16 @@ require_root() {
 
 detect_os() {
     [ -r /etc/os-release ] || die "Cannot read /etc/os-release — unsupported system."
+
+    # Read in a subshell, one value at a time, rather than sourced into this one.
+    # /etc/os-release assigns plain shell variables — NAME, ID, and VERSION among
+    # them — so sourcing it overwrites any of this script's own that share a name.
+    # VERSION did: it became "26.04.1 LTS (Resolute Raccoon)" and went straight to
+    # docker pull as an image tag.
     # shellcheck disable=SC1091
-    . /etc/os-release
-    OS_ID="${ID:-unknown}"
-    OS_NAME="${PRETTY_NAME:-$OS_ID}"
+    OS_ID="$(. /etc/os-release 2> /dev/null && printf '%s' "${ID:-unknown}")"
+    # shellcheck disable=SC1091
+    OS_NAME="$(. /etc/os-release 2> /dev/null && printf '%s' "${PRETTY_NAME:-${ID:-unknown}}")"
     ARCH="$(uname -m)"
 
     case "$ARCH" in
@@ -718,7 +724,18 @@ main() {
     # changes. Installing Docker and then rejecting an argument would leave the
     # system altered by a run that was never going to succeed.
     validate_retention "$RETENTION"
-    [ -n "$VERSION" ] || die "--version needs a tag, e.g. --version v0.2.0"
+    # A tag is letters, digits, dots, underscores and hyphens, and starts with an
+    # alphanumeric. Checked rather than assumed: this is the value that reaches
+    # `docker pull`, and the one time it held something else it held the output
+    # of /etc/os-release.
+    case "$VERSION" in
+        '') die "--version needs a tag, e.g. --version v0.2.1" ;;
+        [A-Za-z0-9]*) ;;
+        *) die "--version must start with a letter or digit, got: $VERSION" ;;
+    esac
+    case "$VERSION" in
+        *[!A-Za-z0-9._-]*) die "--version is not a valid image tag: $VERSION" ;;
+    esac
     if [ "$BEHIND_PROXY" -eq 1 ]; then
         case "$PROXY_PORT" in
             ''|*[!0-9]*) die "--behind-proxy needs a port number, got: $PROXY_PORT" ;;
