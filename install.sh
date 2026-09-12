@@ -28,19 +28,96 @@ BEHIND_PROXY=0
 PROXY_PORT=9000
 
 # ── Output ───────────────────────────────────────────────────────────────────
+#
+# A vertical rail ties the run together: at a glance you can see what has
+# already happened and what is happening now. Steps hang off it as diamonds,
+# the way the better CLI installers read.
+
 # Colour only when stdout is a terminal, so piping to a file stays readable.
 if [ -t 1 ]; then
-    C_RESET=$'\033[0m'; C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'
-    C_RED=$'\033[31m';  C_GREEN=$'\033[32m'; C_YELLOW=$'\033[33m'
+    C_RESET=$'[0m'; C_BOLD=$'[1m'; C_DIM=$'[2m'
+    C_RED=$'[31m';  C_GREEN=$'[32m'; C_YELLOW=$'[33m'
 else
     C_RESET=''; C_BOLD=''; C_DIM=''; C_RED=''; C_GREEN=''; C_YELLOW=''
 fi
 
-step() { printf '\n%s==>%s %s%s%s\n' "$C_GREEN" "$C_RESET" "$C_BOLD" "$1" "$C_RESET"; }
-info() { printf '    %s\n' "$1"; }
-dim()  { printf '    %s%s%s\n' "$C_DIM" "$1" "$C_RESET"; }
-warn() { printf '%s !! %s%s\n' "$C_YELLOW" "$1" "$C_RESET" >&2; }
-die()  { printf '\n%s !! %s%s\n\n' "$C_RED" "$1" "$C_RESET" >&2; exit 1; }
+# Box-drawing by default; BANANA_ASCII=1 for a terminal that cannot show it.
+# The locale is not consulted on purpose — whether these glyphs render is a
+# property of the terminal, and a fresh server often has no locale set at all.
+if [ "${BANANA_ASCII:-0}" = "1" ]; then
+    M_BAR='|'; M_STEP='o'; M_ACTIVE='*'; M_TOP='.'; M_END="'"; M_PICK='>'; M_ART=0
+else
+    M_BAR='│'; M_STEP='◇'; M_ACTIVE='◆'
+    M_TOP='┌'; M_END='└'; M_PICK='❯'; M_ART=1
+fi
+
+# The rail, in dim, as a prefix for everything below a step.
+rail() { printf '%s%s%s' "$C_DIM" "$M_BAR" "$C_RESET"; }
+
+banner() {
+    local cols
+    cols="$(tput cols 2> /dev/null || echo 80)"
+
+    printf '
+'
+    if [ "$M_ART" -eq 1 ] && [ "$cols" -ge 74 ]; then
+        printf '%s' "$C_YELLOW"
+        cat <<'ART'
+████   ███  █   █  ███  █   █  ███  █     █   █ █████ █████  ████  ████
+█   █ █   █ ██  █ █   █ ██  █ █   █ █      █ █    █     █   █     █    
+████  █████ █ █ █ █████ █ █ █ █████ █       █     █     █   █      ███ 
+█   █ █   █ █  ██ █   █ █  ██ █   █ █       █     █     █   █         █
+████  █   █ █   █ █   █ █   █ █   █ █████   █     █   █████  ████ ████ 
+ART
+        printf '%s
+' "$C_RESET"
+    else
+        printf '  %s%sBANANALYTICS%s
+
+' "$C_BOLD" "$C_YELLOW" "$C_RESET"
+    fi
+    printf '  %sself-hosted analytics for React Native%s
+
+' "$C_DIM" "$C_RESET"
+    printf '%s%s%s  %sInstaller%s
+' "$C_DIM" "$M_TOP" "$C_RESET" "$C_BOLD" "$C_RESET"
+}
+
+# step marks what is happening now; everything after it hangs off the rail.
+step() {
+    printf '%s
+%s%s%s  %s%s%s
+' "$(rail)" "$C_GREEN" "$M_ACTIVE" "$C_RESET" "$C_BOLD" "$1" "$C_RESET"
+}
+
+# done_step marks something already finished.
+done_step() {
+    printf '%s
+%s%s%s  %s
+' "$(rail)" "$C_GREEN" "$M_STEP" "$C_RESET" "$1"
+}
+
+info() { printf '%s  %s
+' "$(rail)" "$1"; }
+dim()  { printf '%s  %s%s%s
+' "$(rail)" "$C_DIM" "$1" "$C_RESET"; }
+warn() { printf '%s
+%s%s%s  %s%s
+' "$(rail)" "$C_YELLOW" "$M_ACTIVE" "$C_RESET" "$1" "$C_RESET" >&2; }
+
+die() {
+    printf '%s
+%s%s  %s%s
+
+' "$(rail)" "$C_RED" "$M_END" "$1" "$C_RESET" >&2
+    exit 1
+}
+
+# finish closes the rail.
+finish() { printf '%s
+%s%s%s  %s%s%s
+
+' "$(rail)" "$C_GREEN" "$M_END" "$C_RESET" "$C_BOLD" "$1" "$C_RESET"; }
 
 # ── Interaction ──────────────────────────────────────────────────────────────
 #
@@ -158,17 +235,17 @@ choose_option() {
 
         for i in $(seq 0 $((count - 1))); do
             if [ "$i" -eq "$CHOICE" ]; then
-                printf '\033[2K      %s>%s %s%s%s\n' \
-                    "$C_GREEN" "$C_RESET" "$C_BOLD" "${labels[$i]}" "$C_RESET" > /dev/tty
+                printf '\033[2K%s  %s%s%s %s%s%s\n' "$(rail)" \
+                    "$C_GREEN" "$M_PICK" "$C_RESET" "$C_BOLD" "${labels[$i]}" "$C_RESET" > /dev/tty
             else
-                printf '\033[2K        %s%s%s\n' "$C_DIM" "${labels[$i]}" "$C_RESET" > /dev/tty
+                printf '\033[2K%s    %s%s%s\n' "$(rail)" "$C_DIM" "${labels[$i]}" "$C_RESET" > /dev/tty
             fi
         done
 
-        printf '\033[2K\n' > /dev/tty
-        printf '\033[2K        %s%s%s\n' "$C_DIM" "${detail1[$CHOICE]}" "$C_RESET" > /dev/tty
-        printf '\033[2K        %s%s%s\n' "$C_DIM" "${detail2[$CHOICE]}" "$C_RESET" > /dev/tty
-        printf '\033[2K      %sUp and down to move, Enter to choose%s\n' "$C_DIM" "$C_RESET" > /dev/tty
+        printf '\033[2K%s\n' "$(rail)" > /dev/tty
+        printf '\033[2K%s    %s%s%s\n' "$(rail)" "$C_DIM" "${detail1[$CHOICE]}" "$C_RESET" > /dev/tty
+        printf '\033[2K%s    %s%s%s\n' "$(rail)" "$C_DIM" "${detail2[$CHOICE]}" "$C_RESET" > /dev/tty
+        printf '\033[2K%s  %s%s%s\n' "$(rail)" "$C_DIM" "Arrows to move, Enter to choose" "$C_RESET" > /dev/tty
 
         # A single keystroke, unechoed: otherwise the arrows print their escape
         # codes over the menu being drawn.
@@ -422,9 +499,9 @@ choose_address() {
         return
     fi
 
-    printf '\n'
+    printf '%s\n' "$(rail)"
     info "Where will this be reachable?"
-    printf '\n'
+    printf '%s\n' "$(rail)"
 
     choose_option \
         "A domain you control" \
@@ -665,8 +742,9 @@ main() {
         die "No terminal available to ask where this should be reachable. Pass --domain analytics.example.com"
     fi
 
-    printf '\n%s  Bananalytics%s  —  self-hosted analytics for React Native\n' "$C_BOLD" "$C_RESET"
-    dim "$OS_NAME · $ARCH · installing to $INSTALL_DIR"
+    banner
+    done_step "$OS_NAME · $ARCH"
+    dim "Installing to $INSTALL_DIR"
 
     require_tools
     [ "$upgrading" -eq 1 ] || check_ports
@@ -716,12 +794,13 @@ main() {
     address="$(grep '^BANANA_DOMAIN=' "${INSTALL_DIR}/.env" | cut -d= -f2-)"
     url="https://${address}"
 
-    printf '\n%s  Bananalytics is running.%s\n\n' "$C_GREEN$C_BOLD" "$C_RESET"
     if [ "$upgrading" -eq 1 ]; then
-        info "Upgraded in place. Your data and configuration were not touched."
+        done_step "Upgraded in place"
+        dim "Your data and configuration were not touched."
     else
-        printf '    Open %s%s/setup%s to create your account.\n' "$C_BOLD" "$url" "$C_RESET"
-        printf '\n'
+        done_step "Running"
+        printf '%s  Open %s%s/setup%s to create your account.\n' "$(rail)" "$C_BOLD" "$url" "$C_RESET"
+        printf '%s\n' "$(rail)"
         if is_ip "$address"; then
             dim "Your browser will warn about the certificate. That is expected for"
             dim "an IP address — the connection is encrypted regardless. To switch"
@@ -730,11 +809,11 @@ main() {
             dim "A TLS certificate is issued on the first request and can take a moment."
         fi
     fi
-    printf '\n'
+    printf '%s\n' "$(rail)"
     dim "Config    ${INSTALL_DIR}/.env"
     dim "Logs      docker compose -f ${INSTALL_DIR}/docker-compose.yml logs -f"
     dim "Upgrade   re-run this installer"
-    printf '\n'
+    finish "Done"
 }
 
 main "$@"
