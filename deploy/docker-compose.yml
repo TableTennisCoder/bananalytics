@@ -90,11 +90,16 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    # On a machine that already serves something on 80 and 443, the installer
+    # sets these to a single loopback port for an existing reverse proxy to
+    # forward to. BANANA_HTTP_BIND then looks like "127.0.0.1:9000:9000".
     ports:
-      - "80:80"
-      - "443:443"
+      - "${BANANA_HTTP_BIND:-80:80}"
+      - "${BANANA_HTTPS_BIND:-443:443}"
     environment:
-      BANANA_DOMAIN: "${BANANA_DOMAIN:-localhost}"
+      # A hostname when Caddy terminates TLS, or http://:PORT when something
+      # in front of it already does.
+      BANANA_SITE_ADDRESS: "${BANANA_SITE_ADDRESS:-${BANANA_DOMAIN:-localhost}}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

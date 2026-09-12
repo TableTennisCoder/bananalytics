@@ -564,6 +564,22 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
               again, <code className="font-mono text-xs">--uninstall</code>.
             </p>
             <p className="text-sm text-muted-foreground">
+              <strong>No domain yet?</strong> The installer offers your server&apos;s
+              IP instead. That still gets you an encrypted connection &mdash; Caddy
+              issues its own certificate &mdash; but your browser warns once, because
+              no public authority can vouch for an IP address. Re-run with{" "}
+              <code className="font-mono text-xs">--domain</code> later to switch.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <strong>Server already hosting something?</strong> Caddy needs ports
+              80 and 443, so the installer stops before changing anything if nginx
+              or Apache holds them. Install behind what is already there with{" "}
+              <code className="font-mono text-xs">--behind-proxy 9000</code>: it
+              then listens on 127.0.0.1:9000 over plain HTTP and your existing
+              proxy forwards a hostname to it and terminates TLS. A fresh server is
+              simpler, but it is not required.
+            </p>
+            <p className="text-sm text-muted-foreground">
               Prefer to read a script before running it as root? Sensible &mdash;{" "}
               <a
                 href="https://github.com/TableTennisCoder/bananalytics/blob/main/install.sh"

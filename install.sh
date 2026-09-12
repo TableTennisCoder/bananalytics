@@ -24,6 +24,8 @@ DOMAIN="${BANANA_DOMAIN:-}"
 RETENTION="${BANANA_RAW_RETENTION_MONTHS:-0}"
 ASSUME_YES=0
 UNINSTALL=0
+BEHIND_PROXY=0
+PROXY_PORT=9000
 
 # ── Output ───────────────────────────────────────────────────────────────────
 # Colour only when stdout is a terminal, so piping to a file stays readable.
@@ -85,9 +87,13 @@ usage() {
     cat <<EOF
 Bananalytics installer
 
-  --domain <host>      Domain to serve from, e.g. analytics.example.com
+  --domain <host>      Address to serve from: a domain, or this server's IP
   --version <tag>      Image tag to install (default: latest)
-  --retention <n>      Months of raw events to keep; 0 keeps them forever
+  --retention <n>      Months of raw events to keep; 0 keeps them forever.
+                       Rarely wanted at install time — change it in .env later.
+  --behind-proxy <p>   This machine already serves 80/443. Listen on
+                       127.0.0.1:<p> over plain HTTP instead and let the
+                       existing proxy forward to it and terminate TLS.
   --dir <path>         Install location (default: /opt/bananalytics)
   --yes                Never prompt; requires --domain on a fresh install
   --uninstall          Stop and remove the stack (asks before deleting data)
@@ -177,6 +183,142 @@ local_ips() {
     curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true
 }
 
+# port_in_use reports whether something already listens on a TCP port.
+# Returns false when neither tool is available rather than guessing — Docker
+# will report the conflict itself in that case, just less helpfully.
+port_in_use() {
+    local port="$1"
+    if command -v ss > /dev/null 2>&1; then
+        ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${port}\$"
+    elif command -v netstat > /dev/null 2>&1; then
+        netstat -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${port}\$"
+    else
+        return 1
+    fi
+}
+
+# check_ports stops before Docker does, with an explanation Docker cannot give.
+#
+# A server that already hosts something is the common case this hits: nginx or
+# Apache holds 80 and 443, and "port is already allocated" tells the user
+# nothing about what to do next.
+check_ports() {
+    [ "$BEHIND_PROXY" -eq 0 ] || return 0
+
+    local busy=''
+    port_in_use 80 && busy='80'
+    port_in_use 443 && busy="${busy:+${busy} and }443"
+    [ -n "$busy" ] || return 0
+
+    local holder=''
+    if command -v ss > /dev/null 2>&1; then
+        holder="$(ss -ltnp 2>/dev/null | grep -E '[:.](80|443)\s' | grep -oE 'users:\(\("[^"]+' | grep -oE '"[^"]+' | tr -d '"' | sort -u | tr '\n' ' ')"
+    fi
+
+    printf '\n'
+    warn "Port ${busy} is already in use${holder:+ by: ${holder}}."
+    info "Caddy needs 80 and 443 to serve traffic and obtain certificates, so"
+    info "this install would fail as soon as it tried to start."
+    printf '\n'
+    info "If this machine already runs a web server, install behind it instead:"
+    printf '\n'
+    printf '        %s--behind-proxy 9000%s\n' "$C_BOLD" "$C_RESET"
+    printf '\n'
+    info "Everything then listens on 127.0.0.1:9000 over plain HTTP, and your"
+    info "existing proxy forwards a hostname to it and terminates TLS itself."
+    printf '\n'
+    die "Stopped without changing anything."
+}
+
+is_ip() {
+    case "$1" in
+        *[!0-9.]*) return 1 ;;
+        *.*.*.*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# public_ip is the address someone would reach this machine on. The routing
+# table is asked first so the common case needs no network call at all.
+public_ip() {
+    local ip=''
+    if command -v ip > /dev/null 2>&1; then
+        ip="$(ip -4 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}')"
+    fi
+    [ -n "$ip" ] || ip="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+    printf '%s' "$ip"
+}
+
+# choose_address asks where this install will be reachable.
+#
+# The address cannot wait until after setup, because it is what the certificate
+# is issued for, and the first page anyone opens is the one where they choose an
+# admin password. Asking here is what keeps that password off the wire in clear
+# text — the alternative, serving the setup page over plain HTTP on an IP, hands
+# it to anyone on the path.
+choose_address() {
+    local ip
+    ip="$(public_ip)"
+
+    if ! have_tty || [ "$ASSUME_YES" -eq 1 ]; then
+        die "No terminal to ask where this should be reachable. Pass --domain analytics.example.com"
+    fi
+
+    # Behind an existing proxy there is nothing to choose: that proxy serves a
+    # hostname and forwards here, so a bare IP would never be what is wanted.
+    if [ "$BEHIND_PROXY" -eq 1 ]; then
+        printf '
+'
+        info "Which hostname will your existing proxy serve this on?"
+        info "Used for links and for the allowed browser origin, not for TLS —"
+        info "your proxy handles that."
+        printf '
+'
+        DOMAIN="$(ask 'Hostname' '')"
+        [ -n "$DOMAIN" ] || die "No hostname entered."
+        case "$DOMAIN" in
+            *[!a-zA-Z0-9.-]*) die "That does not look like a hostname: $DOMAIN" ;;
+        esac
+        return
+    fi
+
+    printf '\n'
+    info "Where will this be reachable?"
+    printf '\n'
+    printf '      %s1)%s A domain you control  %s— analytics.example.com%s\n' "$C_BOLD" "$C_RESET" "$C_DIM" "$C_RESET"
+    printf '         Encrypted with a real certificate from the first request.\n'
+    printf '         Its DNS A record has to point here already.\n'
+    printf '\n'
+    printf '      %s2)%s This server'"'"'s IP        %s— %s%s\n' "$C_BOLD" "$C_RESET" "$C_DIM" "${ip:-unknown}" "$C_RESET"
+    printf '         Works right now, no DNS needed. Still encrypted, but your\n'
+    printf '         browser will warn once: no authority can vouch for an IP.\n'
+    printf '         You can move to a domain later.\n'
+    printf '\n'
+
+    local choice
+    choice="$(ask 'Choose' '1')"
+
+    case "$choice" in
+        2)
+            [ -n "$ip" ] || die "Could not determine this machine's IP address. Pass --domain instead."
+            DOMAIN="$ip"
+            printf '\n'
+            warn "Your browser will warn about the certificate on first visit."
+            info "That is expected — the connection is encrypted, but no public"
+            info "authority can certify an IP address. Verify it is your server,"
+            info "then continue. Re-run with --domain later to switch."
+            ;;
+        *)
+            printf '\n'
+            DOMAIN="$(ask 'Domain' '')"
+            [ -n "$DOMAIN" ] || die "No domain entered."
+            case "$DOMAIN" in
+                *[!a-zA-Z0-9.-]*) die "That does not look like a domain: $DOMAIN" ;;
+            esac
+            ;;
+    esac
+}
+
 # check_dns warns when a domain does not point here yet. It never blocks:
 # records propagate, and the operator may know something we do not.
 check_dns() {
@@ -209,14 +351,37 @@ check_dns() {
 
 write_env() {
     local domain="$1" retention="$2" password="$3"
+    local site_address http_bind https_bind
+
+    if [ "$BEHIND_PROXY" -eq 1 ]; then
+        # Loopback only: the proxy in front is the only thing that should reach
+        # this, and binding it publicly would expose an unencrypted port.
+        site_address="http://:${PROXY_PORT}"
+        http_bind="127.0.0.1:${PROXY_PORT}:${PROXY_PORT}"
+        # Compose needs a value for the second mapping, but nothing listens on
+        # 443 in this mode. It goes to the next loopback port, where it is
+        # unreachable from outside and forwards to a closed container port.
+        https_bind="127.0.0.1:$((PROXY_PORT + 1)):443"
+    else
+        site_address="$domain"
+        http_bind="80:80"
+        https_bind="443:443"
+    fi
 
     umask 077
     cat > "${INSTALL_DIR}/.env" <<EOF
 # Written by install.sh on $(date -u '+%Y-%m-%d %H:%M:%S UTC').
 # Re-running the installer never overwrites this file.
 
-# The domain Caddy provisions a TLS certificate for.
+# The address this is reached at.
 BANANA_DOMAIN=${domain}
+
+# What Caddy binds and serves. With a hostname here it obtains its own
+# certificate. As http://:PORT it serves plain HTTP for a reverse proxy that
+# already terminates TLS in front of it.
+BANANA_SITE_ADDRESS=${site_address}
+BANANA_HTTP_BIND=${http_bind}
+BANANA_HTTPS_BIND=${https_bind}
 
 # Browser origins allowed to call the API. Native apps send no Origin header
 # and are unaffected by this.
@@ -320,6 +485,8 @@ main() {
             --retention=*) RETENTION="${1#*=}"; shift ;;
             --dir)       INSTALL_DIR="${2:-}"; shift 2 ;;
             --dir=*)     INSTALL_DIR="${1#*=}"; shift ;;
+            --behind-proxy)   BEHIND_PROXY=1; PROXY_PORT="${2:-9000}"; shift 2 ;;
+            --behind-proxy=*) BEHIND_PROXY=1; PROXY_PORT="${1#*=}"; shift ;;
             --yes|-y)    ASSUME_YES=1; shift ;;
             --uninstall) UNINSTALL=1; shift ;;
             --help|-h)   usage; exit 0 ;;
@@ -334,6 +501,15 @@ main() {
     # system altered by a run that was never going to succeed.
     validate_retention "$RETENTION"
     [ -n "$VERSION" ] || die "--version needs a tag, e.g. --version v0.2.0"
+    if [ "$BEHIND_PROXY" -eq 1 ]; then
+        case "$PROXY_PORT" in
+            ''|*[!0-9]*) die "--behind-proxy needs a port number, got: $PROXY_PORT" ;;
+        esac
+        # The next port up is used as well, so stop short of the ceiling.
+        if [ "$PROXY_PORT" -lt 1024 ] || [ "$PROXY_PORT" -gt 65534 ]; then
+            die "--behind-proxy port must be between 1024 and 65534, got: $PROXY_PORT"
+        fi
+    fi
     case "$INSTALL_DIR" in
         /*) ;;
         *) die "--dir must be an absolute path, got: $INSTALL_DIR" ;;
@@ -354,13 +530,14 @@ main() {
     # get one only after installing Docker would leave the machine changed by a
     # run that could never have finished.
     if [ "$upgrading" -eq 0 ] && [ -z "$DOMAIN" ] && { ! have_tty || [ "$ASSUME_YES" -eq 1 ]; }; then
-        die "No terminal available to ask for a domain. Pass --domain analytics.example.com"
+        die "No terminal available to ask where this should be reachable. Pass --domain analytics.example.com"
     fi
 
     printf '\n%s  Bananalytics%s  —  self-hosted analytics for React Native\n' "$C_BOLD" "$C_RESET"
     dim "$OS_NAME · $ARCH · installing to $INSTALL_DIR"
 
     require_tools
+    [ "$upgrading" -eq 1 ] || check_ports
     ensure_docker
     mkdir -p "$INSTALL_DIR"
 
@@ -375,34 +552,18 @@ main() {
     else
         step "Configuring"
 
-        if [ -z "$DOMAIN" ]; then
-            if ! have_tty && [ "$ASSUME_YES" -eq 0 ]; then
-                die "No terminal to ask for a domain. Pass --domain analytics.example.com"
-            fi
-            info "The domain this will be served from. Its DNS A record must point"
-            info "at this machine so Caddy can obtain a TLS certificate."
-            printf '\n'
-            DOMAIN="$(ask 'Domain' 'localhost')"
-        fi
-        [ -n "$DOMAIN" ] || die "A domain is required."
+        [ -n "$DOMAIN" ] || choose_address
+        [ -n "$DOMAIN" ] || die "An address is required."
 
-        printf '\n'
-        if ! check_dns "$DOMAIN"; then
+        if ! is_ip "$DOMAIN"; then
             printf '\n'
-            if ! confirm "Continue anyway"; then
-                die "Stopped. Point $DOMAIN at this machine and run the installer again."
+            if ! check_dns "$DOMAIN"; then
+                printf '\n'
+                if ! confirm "Continue anyway"; then
+                    die "Stopped. Point $DOMAIN at this machine and run the installer again."
+                fi
             fi
         fi
-
-        if [ "$RETENTION" = "0" ] && have_tty && [ "$ASSUME_YES" -eq 0 ]; then
-            printf '\n'
-            info "Raw events are kept forever by default. A shorter window frees disk"
-            info "but limits how far back cohorts, funnels and sessions can look."
-            info "Enter a number of months, or leave as 0 to keep everything."
-            printf '\n'
-            RETENTION="$(ask 'Keep raw events for (months)' '0')"
-        fi
-        validate_retention "$RETENTION"
 
         write_env "$DOMAIN" "$RETENTION" "$(random_secret)"
         info "Wrote ${INSTALL_DIR}/.env with a generated database password"
@@ -419,10 +580,9 @@ main() {
 
     wait_for_health
 
-    # shellcheck disable=SC1091
-    local url
-    url="https://$(grep '^BANANA_DOMAIN=' "${INSTALL_DIR}/.env" | cut -d= -f2-)"
-    [ "$url" = "https://localhost" ] && url="http://localhost"
+    local address url
+    address="$(grep '^BANANA_DOMAIN=' "${INSTALL_DIR}/.env" | cut -d= -f2-)"
+    url="https://${address}"
 
     printf '\n%s  Bananalytics is running.%s\n\n' "$C_GREEN$C_BOLD" "$C_RESET"
     if [ "$upgrading" -eq 1 ]; then
@@ -430,7 +590,13 @@ main() {
     else
         printf '    Open %s%s/setup%s to create your account.\n' "$C_BOLD" "$url" "$C_RESET"
         printf '\n'
-        dim "A TLS certificate is issued on the first request and can take a moment."
+        if is_ip "$address"; then
+            dim "Your browser will warn about the certificate. That is expected for"
+            dim "an IP address — the connection is encrypted regardless. To switch"
+            dim "to a domain later, re-run this installer with --domain."
+        else
+            dim "A TLS certificate is issued on the first request and can take a moment."
+        fi
     fi
     printf '\n'
     dim "Config    ${INSTALL_DIR}/.env"

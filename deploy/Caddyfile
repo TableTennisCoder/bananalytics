@@ -6,7 +6,17 @@
 #   everything else   → Next.js dashboard (dashboard:3000)
 #                       includes /api/* — these are Next.js API routes that
 #                       internally proxy to the Go backend at /v1/*
-{$BANANA_DOMAIN:localhost} {
+# BANANA_DOMAIN may be a hostname or a bare IP address, and Caddy does the right
+# thing either way without being told: a public hostname gets a Let's Encrypt
+# certificate, while an IP gets one from Caddy's own local authority. Verified
+# by handshake — an IP address logs issuer "local" and serves real TLS. Browsers
+# warn about that certificate because no authority can vouch for an IP, but the
+# connection is encrypted, which a plain-HTTP setup page would not be.
+# BANANA_SITE_ADDRESS is either a hostname, in which case Caddy terminates TLS
+# itself, or "http://:PORT" for a machine that already runs a reverse proxy on
+# 80 and 443. In the second case the proxy in front terminates TLS and forwards
+# everything here, so the routing below stays in one place either way.
+{$BANANA_SITE_ADDRESS:localhost} {
 	# Backend ingest + query + health
 	@backend path /v1/* /health
 	reverse_proxy @backend bananalytics:8080
