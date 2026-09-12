@@ -8,7 +8,7 @@ On a server, one command does everything — installs Docker if missing, asks fo
 your domain, generates a password, pulls the published images and starts up:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TableTennisCoder/bananalytics/main/install.sh | sudo bash
+curl -fsSL https://bananalytics.xyz/install.sh | sudo bash
 ```
 
 Point your domain's A record at the machine first; Caddy needs it to obtain a

@@ -2,7 +2,7 @@
 #
 # Bananalytics installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/TableTennisCoder/bananalytics/main/install.sh | sudo bash
+#   curl -fsSL https://bananalytics.xyz/install.sh | sudo bash
 #
 # Installs Docker if it is missing, writes a configuration, pulls the published
 # images and starts the stack. Running it again upgrades in place and never
@@ -13,8 +13,12 @@
 #
 set -euo pipefail
 
-readonly REPO="TableTennisCoder/bananalytics"
-readonly RAW_BASE="https://raw.githubusercontent.com/${REPO}/main/deploy"
+# Where the compose file and Caddyfile are fetched from once this is running.
+# The same origin that served this script, so an install cannot get halfway and
+# then stall on a second host. Override it to install from a fork:
+#   BANANA_BASE_URL=https://raw.githubusercontent.com/you/bananalytics/main
+readonly BASE_URL="${BANANA_BASE_URL:-https://bananalytics.xyz}"
+readonly RAW_BASE="${BASE_URL}/deploy"
 
 # Not readonly: --dir overrides it during argument parsing.
 INSTALL_DIR="${BANANA_INSTALL_DIR:-/opt/bananalytics}"

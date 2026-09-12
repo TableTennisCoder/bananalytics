@@ -551,7 +551,7 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
               asks for your domain, generates a database password, pulls the
               images and starts everything.
             </p>
-            <CodeBlock>{`curl -fsSL https://raw.githubusercontent.com/TableTennisCoder/bananalytics/main/install.sh | sudo bash`}</CodeBlock>
+            <CodeBlock>{`curl -fsSL https://bananalytics.xyz/install.sh | sudo bash`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
               Point your domain&apos;s A record at the server first &mdash; Caddy
               needs it in place to obtain a TLS certificate, and the installer
