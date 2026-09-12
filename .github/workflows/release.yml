@@ -61,17 +61,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Resolved in a step rather than inline, because both values have a way of
+      # being subtly wrong: image names must be lowercase while a GitHub owner
+      # need not be, and on a tag push the workflow_dispatch input is empty.
+      - name: Resolve owner and version
+        id: names
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          version="${{ inputs.tag }}"
+          if [ -z "$version" ]; then
+            version="${GITHUB_REF_NAME}"
+          fi
+          case "$version" in
+            v*) ;;
+            *) echo "::error::version must look like v1.2.3, got '$version'"; exit 1 ;;
+          esac
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "bare=${version#v}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${version} as ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/*"
+
       - name: Derive tags
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
-          # A release gets its exact version, its minor series, and latest, so an
-          # installer can pin as tightly as it wants.
+          images: ${{ env.REGISTRY }}/${{ steps.names.outputs.owner }}/${{ matrix.image }}
+          # The exact version, its minor series, and latest — so an installer can
+          # pin as tightly as it wants.
           tags: |
-            type=semver,pattern={{version}},value=${{ inputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' || inputs.tag != '' }}
+            type=raw,value=${{ steps.names.outputs.bare }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.names.outputs.version }}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
