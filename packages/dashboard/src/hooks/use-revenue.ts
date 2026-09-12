@@ -11,8 +11,10 @@ export function useRevenue(days = 30, currency?: string, interval: "day" | "hour
   const { params } = useFilters();
 
   return useQuery({
-    queryKey: ["revenue", from, to, currency, params, interval],
-    queryFn: () => api.revenue(from, to, currency || undefined, params, interval),
+    queryKey: ["revenue", from, to, currency, params, interval, "compare"],
+    // compare adds the preceding window of the same length, which is what makes
+    // the deltas on the cards mean anything.
+    queryFn: () => api.revenue(from, to, currency || undefined, params, interval, true),
     refetchInterval: POLL_INTERVAL.DEFAULT,
   });
 }

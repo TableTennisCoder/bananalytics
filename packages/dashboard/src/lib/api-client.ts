@@ -6,7 +6,7 @@ import type { Session } from "@/types/sessions";
 import type { GeoData, LiveData } from "@/types/geo";
 import type { BreakdownResponse, Dimension } from "@/types/dimensions";
 import type { ActiveUsersResponse } from "@/types/active-users";
-import type { RevenueSummary } from "@/types/revenue";
+import type { CohortRevenueReport, RevenueSummary } from "@/types/revenue";
 
 import { isDemoMode } from "./demo-mode";
 import { getDemoResponse } from "./demo-data";
@@ -25,7 +25,7 @@ async function fetchApi<T>(path: string): Promise<T> {
   return res.json();
 }
 
-type QueryValue = string | number | string[] | undefined;
+type QueryValue = string | number | boolean | string[] | undefined;
 
 /**
  * Builds a query string. Array values become repeated parameters, which is how
@@ -36,6 +36,9 @@ function qs(params: Record<string, QueryValue>): string {
 
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
+    // A false flag is the same as an absent one for every endpoint here, and
+    // leaving it out keeps the query string (and the cache key) clean.
+    if (value === false) continue;
     if (Array.isArray(value)) {
       for (const entry of value) search.append(key, entry);
     } else {
@@ -51,8 +54,8 @@ function qs(params: Record<string, QueryValue>): string {
 export type Filters = string[] | undefined;
 
 export const api = {
-  stats: (from?: string, to?: string, filter?: Filters) =>
-    fetchApi<StatsOverview>(`/query/stats${qs({ from, to, filter })}`),
+  stats: (from?: string, to?: string, filter?: Filters, compare?: boolean) =>
+    fetchApi<StatsOverview>(`/query/stats${qs({ from, to, filter, compare })}`),
 
   timeseries: (
     from?: string,
@@ -108,8 +111,18 @@ export const api = {
   activeUsers: (from?: string, to?: string, filter?: Filters) =>
     fetchApi<ActiveUsersResponse>(`/query/active-users${qs({ from, to, filter })}`),
 
-  revenue: (from?: string, to?: string, currency?: string, filter?: Filters, interval?: string) =>
-    fetchApi<RevenueSummary>(`/query/revenue${qs({ from, to, currency, filter, interval })}`),
+  revenue: (
+    from?: string,
+    to?: string,
+    currency?: string,
+    filter?: Filters,
+    interval?: string,
+    compare?: boolean,
+  ) =>
+    fetchApi<RevenueSummary>(`/query/revenue${qs({ from, to, currency, filter, interval, compare })}`),
+
+  cohortRevenue: (from?: string, to?: string, currency?: string, interval?: string) =>
+    fetchApi<CohortRevenueReport>(`/query/cohort-revenue${qs({ from, to, currency, interval })}`),
 
   live: () => fetchApi<LiveData>("/query/live"),
 };

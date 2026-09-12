@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Delta } from "@/components/dashboard/delta";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ActiveUsersChart } from "@/components/dashboard/active-users-chart";
@@ -69,11 +70,25 @@ export default function DashboardPage() {
               title="Events Today"
               value={formatCompact(stats?.total_events ?? 0)}
               icon={<Zap className="h-4 w-4" />}
+              description={
+                <Delta
+                  current={stats?.total_events ?? 0}
+                  previous={stats?.previous?.total_events}
+                  label="vs. preceding period"
+                />
+              }
             />
             <KpiCard
               title="Unique Users"
               value={formatCompact(stats?.unique_users ?? 0)}
               icon={<Users className="h-4 w-4" />}
+              description={
+                <Delta
+                  current={stats?.unique_users ?? 0}
+                  previous={stats?.previous?.unique_users}
+                  label="vs. preceding period"
+                />
+              }
             />
             <KpiCard
               title="Active Sessions"
@@ -89,6 +104,13 @@ export default function DashboardPage() {
               title="Revenue Today"
               value={formatMoney(stats?.revenue ?? 0, stats?.top_currency ?? "")}
               icon={<Wallet className="h-4 w-4" />}
+              description={
+                <Delta
+                  current={stats?.revenue ?? 0}
+                  previous={stats?.previous?.revenue}
+                  label="vs. preceding period"
+                />
+              }
             />
             <KpiCard
               title="Top Country"

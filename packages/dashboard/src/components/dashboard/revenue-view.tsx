@@ -16,6 +16,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { CohortRevenueTable } from "@/components/dashboard/cohort-revenue";
+import { Delta } from "@/components/dashboard/delta";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { BreakdownTable } from "@/components/dashboard/breakdown-table";
 import { useRevenue } from "@/hooks/use-revenue";
@@ -131,22 +133,50 @@ export function RevenueView() {
               label="Total Revenue"
               value={money(data?.total_revenue ?? 0)}
               hint={`${formatNumber(data?.transactions ?? 0)} transactions`}
+              delta={
+                <Delta
+                  current={data?.total_revenue ?? 0}
+                  previous={data?.previous?.total_revenue}
+                  label="vs. previous period"
+                />
+              }
               highlight
             />
             <Metric
               label="Paying People"
               value={formatNumber(data?.paying_users ?? 0)}
               hint={`${formatPercent(data?.paying_share ?? 0)} of ${formatNumber(data?.active_users ?? 0)} active`}
+              delta={
+                <Delta
+                  current={data?.paying_share ?? 0}
+                  previous={data?.previous?.paying_share}
+                  label="paying share"
+                />
+              }
             />
             <Metric
               label="ARPU"
               value={money(data?.arpu ?? 0)}
               hint="per active person"
+              delta={
+                <Delta
+                  current={data?.arpu ?? 0}
+                  previous={data?.previous?.arpu}
+                  label="vs. previous period"
+                />
+              }
             />
             <Metric
               label="ARPPU"
               value={money(data?.arppu ?? 0)}
               hint="per paying person"
+              delta={
+                <Delta
+                  current={data?.arppu ?? 0}
+                  previous={data?.previous?.arppu}
+                  label="vs. previous period"
+                />
+              }
             />
           </div>
 
@@ -207,6 +237,14 @@ export function RevenueView() {
             currency={data?.currency ?? ""}
             days={Number(days)}
           />
+
+          {/*
+            Deliberately last, and on its own range: everything above answers
+            "what happened in this window", while this answers "is what we
+            acquire getting more valuable" — a different question that a window
+            cannot bound, since a cohort keeps earning after it closes.
+          */}
+          <CohortRevenueTable />
         </>
       )}
     </div>
@@ -217,11 +255,14 @@ function Metric({
   label,
   value,
   hint,
+  delta,
   highlight = false,
 }: {
   label: string;
   value: string;
   hint: string;
+  /** The change against the preceding window, when one was requested. */
+  delta?: React.ReactNode;
   highlight?: boolean;
 }) {
   return (
@@ -230,6 +271,7 @@ function Metric({
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className={`mt-1 text-2xl font-bold ${highlight ? "text-primary" : ""}`}>{value}</p>
         <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+        {delta && <div className="mt-1.5">{delta}</div>}
       </CardContent>
     </Card>
   );

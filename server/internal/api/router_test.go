@@ -37,6 +37,9 @@ type mockEventRepo struct {
 	lastBreakdown    *storage.BreakdownParams
 	lastFunnel       *storage.FunnelParams
 	lastRevenue      *storage.RevenueParams
+	lastCohort       *storage.CohortRevenueParams
+	revenueCalls     []storage.RevenueParams
+	statsCalls       []storage.QueryParams
 	linkedIdentities []storage.IdentityLink
 }
 
@@ -81,7 +84,13 @@ func (m *mockEventRepo) QueryRetention(_ context.Context, _ string, _, _ time.Ti
 	}, nil
 }
 
-func (m *mockEventRepo) QueryStats(_ context.Context, _ storage.QueryParams) (*storage.StatsOverview, error) {
+func (m *mockEventRepo) QueryStats(_ context.Context, params storage.QueryParams) (*storage.StatsOverview, error) {
+	m.statsCalls = append(m.statsCalls, params)
+	// The second call is the comparison window; give it different numbers so a
+	// test can tell which window a figure came from.
+	if len(m.statsCalls) > 1 {
+		return &storage.StatsOverview{TotalEvents: 80, UniqueUsers: 8, TopCountry: "Germany"}, nil
+	}
 	return &storage.StatsOverview{TotalEvents: 100, UniqueUsers: 10, ActiveSessions: 3, EventsPerMinute: 5.0, TopCountry: "Germany"}, nil
 }
 func (m *mockEventRepo) QueryTimeseries(_ context.Context, _ storage.QueryParams, _ string) ([]storage.TimeseriesPoint, error) {
@@ -122,8 +131,23 @@ func (m *mockEventRepo) LinkIdentities(_ context.Context, links []storage.Identi
 	return nil
 }
 
+func (m *mockEventRepo) QueryCohortRevenue(_ context.Context, params storage.CohortRevenueParams) (*storage.CohortRevenueReport, error) {
+	m.lastCohort = &params
+	perPerson := 2.5
+	return &storage.CohortRevenueReport{
+		Currency:            "EUR",
+		AvailableCurrencies: []string{"EUR"},
+		Ages:                storage.CohortAges,
+		Interval:            params.Interval,
+		Cohorts: []storage.CohortRevenue{
+			{Cohort: "2026-03-02", People: 120, PerPerson: []*float64{&perPerson}, Total: 3.10},
+		},
+	}, nil
+}
+
 func (m *mockEventRepo) QueryRevenue(_ context.Context, params storage.RevenueParams) (*storage.RevenueSummary, error) {
 	m.lastRevenue = &params
+	m.revenueCalls = append(m.revenueCalls, params)
 	return &storage.RevenueSummary{
 		Currency:            "EUR",
 		AvailableCurrencies: []string{"EUR", "USD"},
@@ -1144,5 +1168,112 @@ func TestQueryActiveUsersRejectsHugeRange(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for a multi-year range, got %d", rec.Code)
+	}
+}
+
+// The comparison is opt-in, so the default must stay a single query. Asking for
+// it must produce a second one covering the window immediately before.
+func TestQueryStatsComparison(t *testing.T) {
+	from := time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
+
+	t.Run("off by default", func(t *testing.T) {
+		ts := setupTestServer()
+		url := fmt.Sprintf("/v1/query/stats?from=%s&to=%s",
+			from.Format(time.RFC3339), to.Format(time.RFC3339))
+		req := httptest.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+		rec := httptest.NewRecorder()
+		ts.handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if len(ts.eventRepo.statsCalls) != 1 {
+			t.Errorf("expected one query without compare, got %d", len(ts.eventRepo.statsCalls))
+		}
+		if strings.Contains(rec.Body.String(), "previous") {
+			t.Error("response carries a previous period that was not asked for")
+		}
+	})
+
+	t.Run("compare=true adds the preceding window", func(t *testing.T) {
+		ts := setupTestServer()
+		url := fmt.Sprintf("/v1/query/stats?from=%s&to=%s&compare=true",
+			from.Format(time.RFC3339), to.Format(time.RFC3339))
+		req := httptest.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+		rec := httptest.NewRecorder()
+		ts.handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if len(ts.eventRepo.statsCalls) != 2 {
+			t.Fatalf("expected two queries with compare, got %d", len(ts.eventRepo.statsCalls))
+		}
+
+		// Seven days back, ending where the current window opens.
+		prev := ts.eventRepo.statsCalls[1]
+		wantFrom := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
+		if !prev.From.Equal(wantFrom) {
+			t.Errorf("comparison window starts %s, want %s", prev.From, wantFrom)
+		}
+		if !prev.To.Before(from) {
+			t.Errorf("comparison window ends %s, which overlaps the current window", prev.To)
+		}
+
+		var got struct {
+			TotalEvents int `json:"total_events"`
+			Previous    *struct {
+				TotalEvents int `json:"total_events"`
+			} `json:"previous"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if got.Previous == nil {
+			t.Fatal("response has no previous period")
+		}
+		if got.TotalEvents != 100 || got.Previous.TotalEvents != 80 {
+			t.Errorf("current = %d, previous = %d; want 100 and 80",
+				got.TotalEvents, got.Previous.TotalEvents)
+		}
+	})
+}
+
+func TestQueryCohortRevenueEndpoint(t *testing.T) {
+	ts := setupTestServer()
+
+	url := fmt.Sprintf("/v1/query/cohort-revenue?from=%s&to=%s&interval=month",
+		time.Now().Add(-90*24*time.Hour).UTC().Format(time.RFC3339),
+		time.Now().UTC().Format(time.RFC3339),
+	)
+	req := httptest.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if ts.eventRepo.lastCohort == nil {
+		t.Fatal("the store was never asked for cohort revenue")
+	}
+	if ts.eventRepo.lastCohort.Interval != "month" {
+		t.Errorf("interval = %q, want month", ts.eventRepo.lastCohort.Interval)
+	}
+}
+
+func TestQueryCohortRevenueRejectsBadInterval(t *testing.T) {
+	ts := setupTestServer()
+
+	req := httptest.NewRequest("GET", "/v1/query/cohort-revenue?interval=fortnight", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_secret_key")
+	rec := httptest.NewRecorder()
+	ts.handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an unsupported interval, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

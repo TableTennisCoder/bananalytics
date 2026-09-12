@@ -100,6 +100,44 @@ func (s *Service) GetStats(ctx context.Context, params storage.QueryParams) (*st
 	return s.events.QueryStats(ctx, params)
 }
 
+// previousWindow is the range of equal length ending where the given one starts.
+//
+// Comparing against a window of the same length is what makes the delta mean
+// anything: a week against a week, a quarter against a quarter. The previous
+// window ends one instant before this one begins, so no event is counted twice.
+func previousWindow(from, to time.Time) (time.Time, time.Time) {
+	span := to.Sub(from)
+	return from.Add(-span), from.Add(-time.Nanosecond)
+}
+
+// GetStatsCompared returns the overview together with the same totals for the
+// preceding window of equal length.
+//
+// A failure to read the earlier window is not a failure of the request: the
+// current figures are what the caller asked for, and losing the comparison is
+// better than losing the page.
+func (s *Service) GetStatsCompared(ctx context.Context, params storage.QueryParams) (*storage.StatsOverview, error) {
+	current, err := s.events.QueryStats(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	prevParams := params
+	prevParams.From, prevParams.To = previousWindow(params.From, params.To)
+
+	previous, err := s.events.QueryStats(ctx, prevParams)
+	if err != nil {
+		return current, nil
+	}
+
+	current.Previous = &storage.StatsTotals{
+		TotalEvents: previous.TotalEvents,
+		UniqueUsers: previous.UniqueUsers,
+		Revenue:     previous.Revenue,
+	}
+	return current, nil
+}
+
 // GetTimeseries returns event counts bucketed by time interval.
 func (s *Service) GetTimeseries(ctx context.Context, params storage.QueryParams, interval string) ([]storage.TimeseriesPoint, error) {
 	return s.events.QueryTimeseries(ctx, params, interval)
@@ -152,6 +190,45 @@ func (s *Service) GetActiveUsers(ctx context.Context, params storage.QueryParams
 // that turn behaviour into money.
 func (s *Service) GetRevenue(ctx context.Context, params storage.RevenueParams) (*storage.RevenueSummary, error) {
 	return s.events.QueryRevenue(ctx, params)
+}
+
+// GetRevenueCompared returns the revenue summary with the preceding window's
+// figures alongside.
+//
+// The earlier window is asked for in the same currency the current one settled
+// on, so the two are comparable even if the leading currency changed between
+// them.
+func (s *Service) GetRevenueCompared(ctx context.Context, params storage.RevenueParams) (*storage.RevenueSummary, error) {
+	current, err := s.events.QueryRevenue(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	prevParams := params
+	prevParams.From, prevParams.To = previousWindow(params.From, params.To)
+	prevParams.Currency = current.Currency
+
+	previous, err := s.events.QueryRevenue(ctx, prevParams)
+	if err != nil {
+		return current, nil
+	}
+
+	current.Previous = &storage.RevenueTotals{
+		TotalRevenue:      previous.TotalRevenue,
+		Transactions:      previous.Transactions,
+		PayingUsers:       previous.PayingUsers,
+		ActiveUsers:       previous.ActiveUsers,
+		ARPU:              previous.ARPU,
+		ARPPU:             previous.ARPPU,
+		AverageOrderValue: previous.AverageOrderValue,
+		PayingShare:       previous.PayingShare,
+	}
+	return current, nil
+}
+
+// GetCohortRevenue reports cumulative revenue per acquired person per cohort.
+func (s *Service) GetCohortRevenue(ctx context.Context, params storage.CohortRevenueParams) (*storage.CohortRevenueReport, error) {
+	return s.events.QueryCohortRevenue(ctx, params)
 }
 
 // GetLive returns real-time activity data.

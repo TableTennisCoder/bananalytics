@@ -334,7 +334,14 @@ func (h *Handler) HandleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	params.From, params.To = defaultToday(params.From, params.To)
 
-	stats, err := h.service.GetStats(r.Context(), params)
+	// compare=true adds the preceding window's totals, which is what turns a
+	// number into a direction. Opt-in, because it costs a second query.
+	var stats *storage.StatsOverview
+	if r.URL.Query().Get("compare") == "true" {
+		stats, err = h.service.GetStatsCompared(r.Context(), params)
+	} else {
+		stats, err = h.service.GetStats(r.Context(), params)
+	}
 	if err != nil {
 		h.logger.Error("failed to query stats", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to query stats"})
@@ -519,11 +526,18 @@ func (h *Handler) HandleRevenue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary, err := h.service.GetRevenue(r.Context(), storage.RevenueParams{
+	revParams := storage.RevenueParams{
 		QueryParams: params,
 		Currency:    currency,
 		Interval:    interval,
-	})
+	}
+
+	var summary *storage.RevenueSummary
+	if r.URL.Query().Get("compare") == "true" {
+		summary, err = h.service.GetRevenueCompared(r.Context(), revParams)
+	} else {
+		summary, err = h.service.GetRevenue(r.Context(), revParams)
+	}
 	if err != nil {
 		h.logger.Error("failed to query revenue", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to query revenue"})
@@ -531,6 +545,57 @@ func (h *Handler) HandleRevenue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, summary)
+}
+
+// HandleCohortRevenue handles GET /v1/query/cohort-revenue
+//
+// The range selects which cohorts are reported, by acquisition date. Their
+// earnings are followed past the end of it — a cohort acquired in June is still
+// earning in September, and that is the number being asked for.
+func (h *Handler) HandleCohortRevenue(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := project(w, r)
+	if !ok {
+		return
+	}
+
+	params, err := queryParams(r, projectID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	params.From, params.To = defaultRange(params.From, params.To)
+
+	currency := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("currency")))
+	if currency != "" && !currencyCode.MatchString(currency) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "invalid 'currency': expected a three-letter ISO 4217 code",
+		})
+		return
+	}
+
+	interval := r.URL.Query().Get("interval")
+	if interval == "" {
+		interval = "week"
+	}
+	if interval != "week" && interval != "month" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "interval must be: week or month"})
+		return
+	}
+
+	report, err := h.service.GetCohortRevenue(r.Context(), storage.CohortRevenueParams{
+		ProjectID: projectID,
+		From:      params.From,
+		To:        params.To,
+		Interval:  interval,
+		Currency:  currency,
+	})
+	if err != nil {
+		h.logger.Error("failed to query cohort revenue", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to query cohort revenue"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, report)
 }
 
 // HandleLive handles GET /v1/query/live

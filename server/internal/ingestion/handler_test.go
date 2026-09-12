@@ -74,6 +74,9 @@ func (m *mockEventRepo) QueryActiveUsers(_ context.Context, _ storage.QueryParam
 func (m *mockEventRepo) QueryRevenue(_ context.Context, _ storage.RevenueParams) (*storage.RevenueSummary, error) {
 	return nil, nil
 }
+func (m *mockEventRepo) QueryCohortRevenue(_ context.Context, _ storage.CohortRevenueParams) (*storage.CohortRevenueReport, error) {
+	return nil, nil
+}
 
 // LinkIdentities records what the handler linked so tests can assert on it.
 func (m *mockEventRepo) LinkIdentities(_ context.Context, links []storage.IdentityLink) error {

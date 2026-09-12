@@ -7,7 +7,12 @@ import type {
 import type { FunnelResponse, FunnelStep } from "@/types/funnel";
 import type { BreakdownResponse, Dimension } from "@/types/dimensions";
 import type { ActiveUsersPoint } from "@/types/active-users";
-import type { RevenuePoint, RevenueSummary } from "@/types/revenue";
+import type {
+  CohortRevenue,
+  CohortRevenueReport,
+  RevenuePoint,
+  RevenueSummary,
+} from "@/types/revenue";
 import type { RetentionCohort } from "@/types/retention";
 import type { Session } from "@/types/sessions";
 import type { GeoData, LiveData } from "@/types/geo";
@@ -201,6 +206,12 @@ function generateStats(segment: Segment): StatsOverview {
     top_country: filterValue(segment, "country") ?? "United States",
     revenue: scaleMoney(4218.6, segment),
     top_currency: "EUR",
+    // Yesterday, a little behind on everything — the demo shows growth.
+    previous: {
+      total_events: scale(21_640, segment),
+      unique_users: scale(3_118, segment),
+      revenue: scaleMoney(3_702.4, segment),
+    },
   };
 }
 
@@ -662,6 +673,71 @@ function generateRevenue(currency: string | null, segment: Segment): RevenueSumm
     average_order_value: totalRevenue / transactions,
     paying_share: (payingUsers / activeUsers) * 100,
     timeseries: points,
+    // The demo shows a business that is growing, so the previous window is
+    // behind on every figure — which is what makes the deltas legible.
+    previous: {
+      total_revenue: Math.round(totalRevenue * 0.847 * 100) / 100,
+      transactions: Math.round(transactions * 0.88),
+      paying_users: Math.round(payingUsers * 0.91),
+      active_users: Math.round(activeUsers * 0.94),
+      arpu: (totalRevenue * 0.847) / (activeUsers * 0.94),
+      arppu: (totalRevenue * 0.847) / (payingUsers * 0.91),
+      average_order_value: (totalRevenue * 0.847) / (transactions * 0.88),
+      paying_share: ((payingUsers * 0.91) / (activeUsers * 0.94)) * 100,
+    },
+  };
+}
+
+/**
+ * Demo cohorts that tell a story worth reading.
+ *
+ * Each cohort is worth a little more at the same age than the one before it,
+ * because that is the shape a founder is looking for — and a demo that shows a
+ * flat table teaches nobody how to read the page. Recent cohorts are left
+ * incomplete so the "not old enough yet" cells appear too.
+ */
+function generateCohortRevenue(
+  currency: string | null,
+  interval: string | null,
+): CohortRevenueReport {
+  const ages = [0, 7, 14, 30, 60, 90];
+  const monthly = interval === "month";
+  const step = monthly ? 30 : 7;
+  const count = monthly ? 4 : 10;
+
+  const cohorts: CohortRevenue[] = [];
+  const today = new Date();
+
+  for (let i = count - 1; i >= 0; i--) {
+    const start = new Date(today);
+    start.setDate(start.getDate() - i * step - step);
+
+    // Newer cohorts monetise slightly better, about 4% per interval.
+    const quality = 1 + (count - 1 - i) * 0.04;
+    const ageInDays = Math.floor((today.getTime() - start.getTime()) / 86_400_000) - step;
+
+    const perPerson: (number | null)[] = ages.map((age) => {
+      if (age > ageInDays) return null;
+      // A saturating curve: most of the value arrives in the first month.
+      const share = 1 - Math.exp(-age / 22) * 0.82;
+      return Math.round(1.9 * quality * share * 100) / 100;
+    });
+
+    const known = perPerson.filter((v): v is number => v !== null);
+    cohorts.push({
+      cohort: start.toISOString().split("T")[0],
+      people: monthly ? 1_450 + i * 40 : 340 + i * 12,
+      per_person: perPerson,
+      total_per_person: known.length ? known[known.length - 1] : 0,
+    });
+  }
+
+  return {
+    currency: currency || "EUR",
+    available_currencies: ["EUR", "USD"],
+    ages,
+    interval: monthly ? "month" : "week",
+    cohorts,
   };
 }
 
@@ -707,6 +783,8 @@ export function getDemoResponse(path: string): unknown {
       return generateActiveUsers(segment);
     case "revenue":
       return generateRevenue(params.get("currency"), segment);
+    case "cohort-revenue":
+      return generateCohortRevenue(params.get("currency"), params.get("interval"));
     case "retention":
       return generateRetention();
     case "sessions":

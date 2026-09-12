@@ -5,12 +5,15 @@ interface KpiCardProps {
   title: string;
   value: string;
   icon: React.ReactNode;
-  description?: string;
-  trend?: "up" | "down" | "neutral";
+  /**
+   * Shown under the value. Takes a node rather than a string so a card can
+   * carry a <Delta>, which colours itself by direction.
+   */
+  description?: React.ReactNode;
   className?: string;
 }
 
-export function KpiCard({ title, value, icon, description, trend, className }: KpiCardProps) {
+export function KpiCard({ title, value, icon, description, className }: KpiCardProps) {
   return (
     <Card className={cn("border-border", className)}>
       <CardContent className="p-5">
@@ -20,18 +23,7 @@ export function KpiCard({ title, value, icon, description, trend, className }: K
         </div>
         <div className="mt-2">
           <p className="text-2xl font-bold">{value}</p>
-          {description && (
-            <p
-              className={cn(
-                "mt-1 text-xs",
-                trend === "up" && "text-green-500",
-                trend === "down" && "text-red-500",
-                (!trend || trend === "neutral") && "text-muted-foreground",
-              )}
-            >
-              {description}
-            </p>
-          )}
+          {description && <div className="mt-1 text-xs text-muted-foreground">{description}</div>}
         </div>
       </CardContent>
     </Card>

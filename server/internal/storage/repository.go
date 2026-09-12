@@ -56,6 +56,10 @@ type EventRepository interface {
 	// averages for a range.
 	QueryRevenue(ctx context.Context, params RevenueParams) (*RevenueSummary, error)
 
+	// QueryCohortRevenue reports cumulative revenue per acquired person for
+	// each cohort, which is how a monetisation change shows up as a number.
+	QueryCohortRevenue(ctx context.Context, params CohortRevenueParams) (*CohortRevenueReport, error)
+
 	// LinkIdentities records anonymous-to-user mappings so a person's pre-login
 	// events are attributed to them.
 	LinkIdentities(ctx context.Context, links []IdentityLink) error
@@ -245,6 +249,74 @@ type RevenueSummary struct {
 	PayingShare float64 `json:"paying_share"`
 
 	Timeseries []RevenuePoint `json:"timeseries"`
+
+	// Previous holds the same figures for the window immediately before this
+	// one, present only when the caller asked to compare.
+	Previous *RevenueTotals `json:"previous,omitempty"`
+}
+
+// RevenueTotals is the comparable subset of a revenue summary, in the same
+// currency as the summary carrying it.
+type RevenueTotals struct {
+	TotalRevenue      float64 `json:"total_revenue"`
+	Transactions      int     `json:"transactions"`
+	PayingUsers       int     `json:"paying_users"`
+	ActiveUsers       int     `json:"active_users"`
+	ARPU              float64 `json:"arpu"`
+	ARPPU             float64 `json:"arppu"`
+	AverageOrderValue float64 `json:"average_order_value"`
+	PayingShare       float64 `json:"paying_share"`
+}
+
+// CohortRevenueParams describes a cohort lifetime-value query.
+type CohortRevenueParams struct {
+	ProjectID string
+	// From and To select which cohorts are reported, by the date each cohort
+	// was acquired — not by when its revenue arrived. A cohort's earnings are
+	// followed for as long as there is data, which is the whole point.
+	From     time.Time
+	To       time.Time
+	Interval string // "week" or "month"
+	// Currency to report in. Empty picks the one with the most revenue, the
+	// same rule the revenue summary uses.
+	Currency string
+}
+
+// CohortAges are the ages, in days since acquisition, that a cohort report
+// measures cumulative revenue at.
+//
+// Day 0 catches whatever people spend immediately; day 30 is where a change to
+// pricing or onboarding usually becomes visible.
+var CohortAges = []int{0, 7, 14, 30, 60, 90}
+
+// CohortRevenue is one acquisition cohort and what it has earned since.
+type CohortRevenue struct {
+	// Cohort is the ISO date the cohort's interval starts on.
+	Cohort string `json:"cohort"`
+	// People is how many were acquired in that interval.
+	People int `json:"people"`
+	// PerPerson is cumulative revenue per acquired person at each of
+	// CohortAges. A nil entry means the cohort has not reached that age yet,
+	// which is different from having earned nothing — showing zero there would
+	// make every recent cohort look like a failure.
+	PerPerson []*float64 `json:"per_person"`
+	// Total is everything the cohort has earned so far, per person.
+	Total float64 `json:"total_per_person"`
+}
+
+// CohortRevenueReport answers whether the people you acquire are becoming more
+// or less valuable over time.
+//
+// Retention says whether they come back and the revenue summary says what they
+// spent in a window. Neither says whether June's signups are worth more than
+// May's, which is the question a change to pricing or onboarding is trying to
+// move.
+type CohortRevenueReport struct {
+	Currency            string          `json:"currency"`
+	AvailableCurrencies []string        `json:"available_currencies"`
+	Ages                []int           `json:"ages"`
+	Interval            string          `json:"interval"`
+	Cohorts             []CohortRevenue `json:"cohorts"`
 }
 
 // IdentityLink maps an anonymous ID to the user it turned out to belong to.
@@ -278,6 +350,23 @@ type StatsOverview struct {
 	// Revenue booked in the same range, in TopCurrency.
 	Revenue     float64 `json:"revenue"`
 	TopCurrency string  `json:"top_currency"`
+
+	// Previous holds the same totals for the window immediately before this
+	// one, and is only present when the caller asked to compare. A number on
+	// its own says what is; the pair says whether it is moving, which is the
+	// difference between reading a dashboard and deciding something from it.
+	Previous *StatsTotals `json:"previous,omitempty"`
+}
+
+// StatsTotals is the comparable subset of an overview.
+//
+// Active sessions and events-per-minute are deliberately absent: both describe
+// the last half hour, and "the half hour before the previous period" is not a
+// question anyone is asking.
+type StatsTotals struct {
+	TotalEvents int     `json:"total_events"`
+	UniqueUsers int     `json:"unique_users"`
+	Revenue     float64 `json:"revenue"`
 }
 
 // TimeseriesPoint represents a single time bucket with its counts.
