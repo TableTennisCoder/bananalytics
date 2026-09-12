@@ -1,0 +1,10 @@
+# Shell scripts and anything a Linux box executes must keep LF endings.
+# A CRLF shebang makes the kernel look for an interpreter called "bash\r",
+# and the installer would fail on every machine with "bad interpreter" —
+# invisibly, since the file looks fine in an editor.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+Caddyfile       text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.sql           text eol=lf

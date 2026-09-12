@@ -43,17 +43,48 @@ warn() { printf '%s !! %s%s\n' "$C_YELLOW" "$1" "$C_RESET" >&2; }
 die()  { printf '\n%s !! %s%s\n\n' "$C_RED" "$1" "$C_RESET" >&2; exit 1; }
 
 # ── Interaction ──────────────────────────────────────────────────────────────
-# When this script is piped into bash, stdin is the script itself — a bare
+#
+# Two constraints shape everything here.
+#
+# When this script is piped into bash, stdin is the script itself, so a bare
 # `read` would consume the script's own text rather than wait for the user.
-# Everything interactive therefore goes through the terminal directly.
+# Every prompt therefore reads the terminal directly.
+#
+# And nothing reads inside a command substitution. `$(...)` runs a subshell,
+# where an `exit` ends only that subshell and leaves the script running with an
+# empty answer — and where a Ctrl-C caught by `read` is swallowed by the `||`
+# that follows it, so a retry loop just asks again and the user cannot get out.
+# Prompts set a global instead, which keeps them in the current shell.
+
 # Testing permissions is not enough: /dev/tty exists in a container started
 # without a terminal, and passes -r and -w, but opening it fails. So open it.
 have_tty() { (exec 3<> /dev/tty) 2> /dev/null; }
 
+# Answers land here, set by ask, ask_again and choose_option.
+REPLY_VALUE=""
+CHOICE=0
+
+# cancelled ends the run the way the user asked it to.
+cancelled() {
+    printf '\n%s !! Cancelled. Nothing was changed.%s\n\n' "$C_YELLOW" "$C_RESET" >&2
+    exit 130
+}
+trap cancelled INT TERM
+
+# read_tty reads one line, telling an interrupt apart from an empty answer.
+# A signal makes read exit above 128, and noticing that is the only way to catch
+# a Ctrl-C the terminal handed to the read rather than to the shell.
+read_tty() {
+    local status=0
+    IFS= read -r REPLY_VALUE < /dev/tty || status=$?
+    [ "$status" -gt 128 ] && cancelled
+    return 0
+}
+
 ask() {
-    local prompt="$1" default="${2:-}" answer=''
+    local prompt="$1" default="${2:-}"
     if ! have_tty || [ "$ASSUME_YES" -eq 1 ]; then
-        printf '%s' "$default"
+        REPLY_VALUE="$default"
         return
     fi
     if [ -n "$default" ]; then
@@ -61,8 +92,8 @@ ask() {
     else
         printf '%s%s%s: ' "$C_BOLD" "$prompt" "$C_RESET" > /dev/tty
     fi
-    IFS= read -r answer < /dev/tty || answer=''
-    printf '%s' "${answer:-$default}"
+    read_tty
+    [ -n "$REPLY_VALUE" ] || REPLY_VALUE="$default"
 }
 
 confirm() {
@@ -70,28 +101,22 @@ confirm() {
     [ "$ASSUME_YES" -eq 1 ] && return 0
     have_tty || return 0
     printf '%s%s%s [y/N]: ' "$C_BOLD" "$prompt" "$C_RESET" > /dev/tty
-    local reply=''
-    IFS= read -r reply < /dev/tty || reply=''
-    case "$reply" in [yY]|[yY][eE][sS]) return 0 ;; *) return 1 ;; esac
+    read_tty
+    case "$REPLY_VALUE" in [yY]|[yY][eE][sS]) return 0 ;; *) return 1 ;; esac
 }
 
 # ask_again keeps asking until the answer is usable.
 #
 # An interactive prompt that aborts on a typo is the wrong shape: this script is
 # normally run as `curl … | sudo bash`, so "start over" means re-running the
-# whole pipeline. A person who mistypes a domain should get another go at it.
-#
-# The validator is a function name taking the answer; the hint is what to show
-# when it says no. Both the hint and the prompt go to the terminal, while the
-# accepted answer goes to stdout for the caller to capture.
+# whole pipeline. Someone who mistypes a domain should get another go at it.
 ask_again() {
     local prompt="$1" validator="$2" hint="$3"
-    local answer='' tries=0
+    local tries=0
 
     while [ "$tries" -lt 8 ]; do
-        answer="$(ask "$prompt" '')"
-        if [ -n "$answer" ] && "$validator" "$answer"; then
-            printf '%s' "$answer"
+        ask "$prompt" ''
+        if [ -n "$REPLY_VALUE" ] && "$validator" "$REPLY_VALUE"; then
             return 0
         fi
         tries=$((tries + 1))
@@ -101,20 +126,97 @@ ask_again() {
     die "No usable answer after $tries attempts. Pass --domain analytics.example.com instead."
 }
 
-# looks_like_host accepts a hostname or an IP: letters, digits, dots, hyphens,
-# and nothing else that could reach a shell.
+# choose_option renders a list you move through with the arrow keys and leaves
+# the selected index in CHOICE.
+#
+# Options arrive as triples of label and two explanation lines, so the block it
+# redraws is always the same height and the cursor can be put back over it
+# exactly. Falls back to a numbered prompt where single keystrokes are not
+# available — a terminal that cannot do this should still answer the question.
+choose_option() {
+    local -a labels=() detail1=() detail2=()
+    while [ "$#" -ge 3 ]; do
+        labels+=("$1"); detail1+=("$2"); detail2+=("$3")
+        shift 3
+    done
+
+    local count=${#labels[@]}
+    CHOICE=0
+    [ "$count" -gt 0 ] || return 0
+
+    if ! have_tty || [ "$ASSUME_YES" -eq 1 ]; then
+        return 0
+    fi
+
+    # One line per option, a blank, two detail lines, and the key hint.
+    local height=$((count + 4))
+    local i key rest drawn=0
+
+    while :; do
+        [ "$drawn" -eq 1 ] && printf '\033[%dA' "$height" > /dev/tty
+        drawn=1
+
+        for i in $(seq 0 $((count - 1))); do
+            if [ "$i" -eq "$CHOICE" ]; then
+                printf '\033[2K      %s>%s %s%s%s\n' \
+                    "$C_GREEN" "$C_RESET" "$C_BOLD" "${labels[$i]}" "$C_RESET" > /dev/tty
+            else
+                printf '\033[2K        %s%s%s\n' "$C_DIM" "${labels[$i]}" "$C_RESET" > /dev/tty
+            fi
+        done
+
+        printf '\033[2K\n' > /dev/tty
+        printf '\033[2K        %s%s%s\n' "$C_DIM" "${detail1[$CHOICE]}" "$C_RESET" > /dev/tty
+        printf '\033[2K        %s%s%s\n' "$C_DIM" "${detail2[$CHOICE]}" "$C_RESET" > /dev/tty
+        printf '\033[2K      %sUp and down to move, Enter to choose%s\n' "$C_DIM" "$C_RESET" > /dev/tty
+
+        # A single keystroke, unechoed: otherwise the arrows print their escape
+        # codes over the menu being drawn.
+        if ! IFS= read -rsn1 key < /dev/tty; then
+            printf '\n' > /dev/tty
+            ask_again 'Choose' is_in_range "Enter a number from 1 to ${count}"
+            CHOICE=$((REPLY_VALUE - 1))
+            return 0
+        fi
+
+        case "$key" in
+            '') return 0 ;;
+            $'\033')
+                # An arrow arrives as ESC [ A or ESC [ B. The rest is read with a
+                # timeout so a lone Escape does not wedge the menu.
+                IFS= read -rsn2 -t 0.1 rest < /dev/tty || rest=''
+                case "$rest" in
+                    '[A') CHOICE=$(( (CHOICE - 1 + count) % count )) ;;
+                    '[B') CHOICE=$(( (CHOICE + 1) % count )) ;;
+                esac
+                ;;
+            k) CHOICE=$(( (CHOICE - 1 + count) % count )) ;;
+            j) CHOICE=$(( (CHOICE + 1) % count )) ;;
+            [1-9])
+                if [ "$key" -le "$count" ]; then
+                    CHOICE=$((key - 1))
+                    return 0
+                fi
+                ;;
+            q) cancelled ;;
+        esac
+    done
+}
+
+is_in_range() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) [ "$1" -ge 1 ] && [ "$1" -le 9 ] ;;
+    esac
+}
+
+# looks_like_host accepts a hostname or an IP: letters, digits, dots and
+# hyphens, and nothing else that could reach a shell.
 looks_like_host() {
     case "$1" in
         *[!a-zA-Z0-9.-]*) return 1 ;;
         -*|.*) return 1 ;;
         *) return 0 ;;
-    esac
-}
-
-is_one_or_two() {
-    case "$1" in
-        1|2) return 0 ;;
-        *) return 1 ;;
     esac
 }
 
@@ -310,57 +412,43 @@ choose_address() {
     # Behind an existing proxy there is nothing to choose: that proxy serves a
     # hostname and forwards here, so a bare IP would never be what is wanted.
     if [ "$BEHIND_PROXY" -eq 1 ]; then
-        printf '
-'
+        printf '\n'
         info "Which hostname will your existing proxy serve this on?"
         info "Used for links and for the allowed browser origin, not for TLS —"
         info "your proxy handles that."
-        printf '
-'
-        DOMAIN="$(ask_again 'Hostname' looks_like_host \
-            'A hostname, e.g. analytics.example.com')"
+        printf '\n'
+        ask_again 'Hostname' looks_like_host 'A hostname, e.g. analytics.example.com'
+        DOMAIN="$REPLY_VALUE"
         return
     fi
 
     printf '\n'
     info "Where will this be reachable?"
     printf '\n'
-    printf '      %s1)%s A domain you control  %s— analytics.example.com%s\n' "$C_BOLD" "$C_RESET" "$C_DIM" "$C_RESET"
-    printf '         Encrypted with a real certificate from the first request.\n'
-    printf '         Its DNS A record has to point here already.\n'
-    printf '\n'
-    printf '      %s2)%s This server'"'"'s IP        %s— %s%s\n' "$C_BOLD" "$C_RESET" "$C_DIM" "${ip:-unknown}" "$C_RESET"
-    printf '         Works right now, no DNS needed. Still encrypted, but your\n'
-    printf '         browser will warn once: no authority can vouch for an IP.\n'
-    printf '         You can move to a domain later.\n'
-    printf '\n'
 
-    # Pressing enter takes option 1, but anything else has to be one of the two
-    # on offer. Silently treating a typo as "domain" would be worse than asking
-    # again, because the mistake only surfaces once TLS fails.
-    local choice
-    choice="$(ask 'Choose' '1')"
-    while ! is_one_or_two "$choice"; do
-        printf '    %sEnter 1 or 2.%s\n' "$C_YELLOW" "$C_RESET" > /dev/tty
-        choice="$(ask 'Choose' '1')"
-    done
+    choose_option \
+        "A domain you control" \
+        "Encrypted with a real certificate from the first request." \
+        "Its DNS A record has to point here already." \
+        "This server's IP  —  ${ip:-unknown}" \
+        "Works right now, no DNS needed. Still encrypted, but your browser" \
+        "warns once: no authority can vouch for an IP. Move to a domain later."
 
-    case "$choice" in
-        2)
-            [ -n "$ip" ] || die "Could not determine this machine's IP address. Pass --domain instead."
-            DOMAIN="$ip"
-            printf '\n'
-            warn "Your browser will warn about the certificate on first visit."
-            info "That is expected — the connection is encrypted, but no public"
-            info "authority can certify an IP address. Verify it is your server,"
-            info "then continue. Re-run with --domain later to switch."
-            ;;
-        *)
-            printf '\n'
-            DOMAIN="$(ask_again 'Domain' looks_like_host \
-                'A domain, e.g. analytics.example.com — or Ctrl-C and re-run with option 2')"
-            ;;
-    esac
+    if [ "$CHOICE" -eq 1 ]; then
+        [ -n "$ip" ] || die "Could not determine this machine's IP address. Pass --domain instead."
+        DOMAIN="$ip"
+        printf '\n'
+        warn "Your browser will warn about the certificate on first visit."
+        info "That is expected — the connection is encrypted, but no public"
+        info "authority can certify an IP address. Verify it is your server,"
+        info "then continue. Re-run with --domain later to switch."
+        return
+    fi
+
+    printf '\n'
+    ask_again 'Domain' looks_like_host \
+        'A domain, e.g. analytics.example.com — Ctrl-C to start over'
+    DOMAIN="$REPLY_VALUE"
 }
 
 # check_dns warns when a domain does not point here yet. It never blocks:
