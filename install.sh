@@ -75,6 +75,49 @@ confirm() {
     case "$reply" in [yY]|[yY][eE][sS]) return 0 ;; *) return 1 ;; esac
 }
 
+# ask_again keeps asking until the answer is usable.
+#
+# An interactive prompt that aborts on a typo is the wrong shape: this script is
+# normally run as `curl … | sudo bash`, so "start over" means re-running the
+# whole pipeline. A person who mistypes a domain should get another go at it.
+#
+# The validator is a function name taking the answer; the hint is what to show
+# when it says no. Both the hint and the prompt go to the terminal, while the
+# accepted answer goes to stdout for the caller to capture.
+ask_again() {
+    local prompt="$1" validator="$2" hint="$3"
+    local answer='' tries=0
+
+    while [ "$tries" -lt 8 ]; do
+        answer="$(ask "$prompt" '')"
+        if [ -n "$answer" ] && "$validator" "$answer"; then
+            printf '%s' "$answer"
+            return 0
+        fi
+        tries=$((tries + 1))
+        printf '    %s%s%s\n' "$C_YELLOW" "$hint" "$C_RESET" > /dev/tty
+    done
+
+    die "No usable answer after $tries attempts. Pass --domain analytics.example.com instead."
+}
+
+# looks_like_host accepts a hostname or an IP: letters, digits, dots, hyphens,
+# and nothing else that could reach a shell.
+looks_like_host() {
+    case "$1" in
+        *[!a-zA-Z0-9.-]*) return 1 ;;
+        -*|.*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+is_one_or_two() {
+    case "$1" in
+        1|2) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 validate_retention() {
     case "$1" in
         ''|*[!0-9]*) die "Retention must be a whole number of months, got: $1" ;;
@@ -274,11 +317,8 @@ choose_address() {
         info "your proxy handles that."
         printf '
 '
-        DOMAIN="$(ask 'Hostname' '')"
-        [ -n "$DOMAIN" ] || die "No hostname entered."
-        case "$DOMAIN" in
-            *[!a-zA-Z0-9.-]*) die "That does not look like a hostname: $DOMAIN" ;;
-        esac
+        DOMAIN="$(ask_again 'Hostname' looks_like_host \
+            'A hostname, e.g. analytics.example.com')"
         return
     fi
 
@@ -295,8 +335,15 @@ choose_address() {
     printf '         You can move to a domain later.\n'
     printf '\n'
 
+    # Pressing enter takes option 1, but anything else has to be one of the two
+    # on offer. Silently treating a typo as "domain" would be worse than asking
+    # again, because the mistake only surfaces once TLS fails.
     local choice
     choice="$(ask 'Choose' '1')"
+    while ! is_one_or_two "$choice"; do
+        printf '    %sEnter 1 or 2.%s\n' "$C_YELLOW" "$C_RESET" > /dev/tty
+        choice="$(ask 'Choose' '1')"
+    done
 
     case "$choice" in
         2)
@@ -310,11 +357,8 @@ choose_address() {
             ;;
         *)
             printf '\n'
-            DOMAIN="$(ask 'Domain' '')"
-            [ -n "$DOMAIN" ] || die "No domain entered."
-            case "$DOMAIN" in
-                *[!a-zA-Z0-9.-]*) die "That does not look like a domain: $DOMAIN" ;;
-            esac
+            DOMAIN="$(ask_again 'Domain' looks_like_host \
+                'A domain, e.g. analytics.example.com — or Ctrl-C and re-run with option 2')"
             ;;
     esac
 }
