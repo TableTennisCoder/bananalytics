@@ -45,10 +45,14 @@ fi
 # The locale is not consulted on purpose — whether these glyphs render is a
 # property of the terminal, and a fresh server often has no locale set at all.
 if [ "${BANANA_ASCII:-0}" = "1" ]; then
-    M_BAR='|'; M_STEP='o'; M_ACTIVE='*'; M_TOP='.'; M_END="'"; M_PICK='>'; M_ART=0
+    M_BAR='|'; M_STEP='o'; M_ACTIVE='*'; M_TOP='.'; M_END="'"; M_PICK='>'
+    M_ON='[x]'; M_OFF='[ ]'; M_ART=0
 else
     M_BAR='│'; M_STEP='◇'; M_ACTIVE='◆'
-    M_TOP='┌'; M_END='└'; M_PICK='❯'; M_ART=1
+    M_TOP='┌'; M_END='└'; M_PICK='❯'
+    # A box in front of every option says "there is something to pick here"
+    # before anyone reads a word of it. The filled one is the current choice.
+    M_ON='◼'; M_OFF='☐'; M_ART=1
 fi
 
 # The rail, in dim, as a prefix for everything below a step.
@@ -235,10 +239,11 @@ choose_option() {
 
         for i in $(seq 0 $((count - 1))); do
             if [ "$i" -eq "$CHOICE" ]; then
-                printf '\033[2K%s  %s%s%s %s%s%s\n' "$(rail)" \
-                    "$C_GREEN" "$M_PICK" "$C_RESET" "$C_BOLD" "${labels[$i]}" "$C_RESET" > /dev/tty
+                printf '\033[2K%s  %s%s %s%s %s%s\n' "$(rail)" \
+                    "$C_GREEN" "$M_PICK" "$M_ON" "$C_RESET" "$C_BOLD" "${labels[$i]}$C_RESET" > /dev/tty
             else
-                printf '\033[2K%s    %s%s%s\n' "$(rail)" "$C_DIM" "${labels[$i]}" "$C_RESET" > /dev/tty
+                printf '\033[2K%s    %s%s %s%s\n' "$(rail)" \
+                    "$C_DIM" "$M_OFF" "${labels[$i]}" "$C_RESET" > /dev/tty
             fi
         done
 
