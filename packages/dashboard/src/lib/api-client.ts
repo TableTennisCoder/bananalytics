@@ -7,6 +7,7 @@ import type { GeoData, LiveData } from "@/types/geo";
 import type { BreakdownResponse, Dimension } from "@/types/dimensions";
 import type { ActiveUsersResponse } from "@/types/active-users";
 import type { CohortRevenueReport, RevenueSummary } from "@/types/revenue";
+import type { BackupStatus } from "@/types/backups";
 
 import { isDemoMode } from "./demo-mode";
 import { getDemoResponse } from "./demo-data";
@@ -72,6 +73,9 @@ export const api = {
     fetchApi<{ events: TopEvent[] }>(`/query/events/top${qs({ from, to, limit, filter })}`),
 
   eventNames: () => fetchApi<{ names: string[] }>("/query/events/names"),
+
+  /** Instance-wide, not project-scoped: a dump covers the whole database. */
+  backups: () => fetchApi<BackupStatus>("/query/backups"),
 
   events: (params?: {
     event?: string;

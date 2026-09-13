@@ -28,6 +28,9 @@ const (
 	// maxActiveUsersRange bounds the DAU/WAU/MAU query, which produces one row
 	// per day and scans a month of extra history for the rolling windows.
 	maxActiveUsersRange = 365 * 24 * time.Hour
+	// maxBackupRuns caps the history the dashboard can ask for. One row a
+	// night means a year of it is 365 rows.
+	maxBackupRuns = 365
 )
 
 // currencyCode matches an ISO 4217 alphabetic code.
@@ -433,6 +436,42 @@ func (h *Handler) HandleEventNames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"names": names})
+}
+
+// HandleBackups handles GET /v1/query/backups
+//
+// Instance-wide rather than project-scoped: a dump covers the whole database.
+// Any holder of a secret key on this installation is someone who operates it,
+// and "did this server back itself up last night" is a question they should be
+// able to answer without an SSH session.
+func (h *Handler) HandleBackups(w http.ResponseWriter, r *http.Request) {
+	if _, ok := project(w, r); !ok {
+		return
+	}
+
+	limit := 10
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= maxBackupRuns {
+			limit = n
+		}
+	}
+
+	runs, err := h.service.GetBackupRuns(r.Context(), limit)
+	if err != nil {
+		h.logger.Error("failed to query backup runs", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to query backup runs"})
+		return
+	}
+
+	// The newest run is what the dashboard leads with, so it is named rather
+	// than left to be dug out of the list. Null means this installation has
+	// never run a backup — a different thing from one that failed.
+	var last any
+	if len(runs) > 0 {
+		last = runs[0]
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"last": last, "runs": runs})
 }
 
 // HandleGeo handles GET /v1/query/geo

@@ -99,6 +99,14 @@ func (m *mockEventRepo) QueryTimeseries(_ context.Context, _ storage.QueryParams
 func (m *mockEventRepo) QueryTopEvents(_ context.Context, _ storage.QueryParams, _ int) ([]storage.TopEvent, error) {
 	return []storage.TopEvent{{Event: "button_clicked", Count: 100, UniqueUsers: 25}}, nil
 }
+// mockBackupRepo reports an installation that has never run a backup, which is
+// all the routing tests need from it.
+type mockBackupRepo struct{}
+
+func (mockBackupRepo) QueryBackupRuns(_ context.Context, _ int) ([]storage.BackupRun, error) {
+	return nil, nil
+}
+
 func (m *mockEventRepo) QueryEventNames(_ context.Context, _ string) ([]string, error) {
 	return []string{"button_clicked", "$screen"}, nil
 }
@@ -347,7 +355,7 @@ func setupTestServer() *testServer {
 	rl := ratelimit.NewTokenBucket(1000)
 	enricher := ingestion.NewEnricher(clock.Real{}, nil)
 	ingestionHandler := ingestion.NewHandler(eventRepo, enricher, logger)
-	queryService := query.NewService(eventRepo)
+	queryService := query.NewService(eventRepo, mockBackupRepo{})
 	queryHandler := query.NewHandler(queryService, logger)
 	userAuthHandlers := userauth.NewHandlers(userRepo, sessionRepo, logger, false)
 
@@ -714,7 +722,7 @@ func TestRateLimiting(t *testing.T) {
 	rl := ratelimit.NewTokenBucket(1) // 1 RPM — very restrictive
 	enricher := ingestion.NewEnricher(clock.Real{}, nil)
 	ingestionHandler := ingestion.NewHandler(eventRepo, enricher, logger)
-	queryService := query.NewService(eventRepo)
+	queryService := query.NewService(eventRepo, mockBackupRepo{})
 	queryHandler := query.NewHandler(queryService, logger)
 
 	router := NewRouter(RouterConfig{

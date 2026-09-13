@@ -136,7 +136,7 @@ func main() {
 	authRateLimiter := ratelimit.NewTokenBucket(cfg.ProjectCreateRPM)
 	enricher := ingestion.NewEnricher(clk, geoResolver)
 	ingestionHandler := ingestion.NewHandler(eventStore, enricher, logger)
-	queryService := query.NewService(eventStore)
+	queryService := query.NewService(eventStore, postgres.NewBackupStore(pool))
 	queryHandler := query.NewHandler(queryService, logger)
 
 	// User auth handlers — secure flag is on in production (HTTPS)

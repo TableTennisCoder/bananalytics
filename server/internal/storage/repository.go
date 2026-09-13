@@ -400,3 +400,31 @@ type LiveData struct {
 	EventsLastMinute int          `json:"events_last_minute"`
 	RecentEvents    []EventResult `json:"recent_events"`
 }
+
+// BackupRepository reads what the host-side backup script recorded.
+//
+// Separate from the event repository on purpose: a backup is a property of the
+// installation, not of a project, and nothing here is scoped by project_id.
+type BackupRepository interface {
+	// QueryBackupRuns returns the most recent runs, newest first.
+	QueryBackupRuns(ctx context.Context, limit int) ([]BackupRun, error)
+}
+
+// BackupRun is one execution of scripts/backup.sh.
+type BackupRun struct {
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at"`
+	// Status is "ok" or "failed".
+	Status string `json:"status"`
+	// Bytes is the size of the dump, nil when the run produced none.
+	Bytes *int64 `json:"bytes,omitempty"`
+	// Path is where the dump landed on the server.
+	Path string `json:"path,omitempty"`
+	// Remote is the rclone destination a copy actually reached. Empty means
+	// the dump exists only on the server that made it — which is the state
+	// worth noticing, so it is reported rather than omitted.
+	Remote string `json:"remote"`
+	// Message explains a failure, or a successful dump whose off-site copy
+	// did not happen.
+	Message string `json:"message,omitempty"`
+}

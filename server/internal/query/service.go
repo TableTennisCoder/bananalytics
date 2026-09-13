@@ -10,12 +10,18 @@ import (
 
 // Service encapsulates analytics query logic.
 type Service struct {
-	events storage.EventRepository
+	events  storage.EventRepository
+	backups storage.BackupRepository
 }
 
 // NewService creates a new query service.
-func NewService(events storage.EventRepository) *Service {
-	return &Service{events: events}
+func NewService(events storage.EventRepository, backups storage.BackupRepository) *Service {
+	return &Service{events: events, backups: backups}
+}
+
+// GetBackupRuns returns the most recent backup runs, newest first.
+func (s *Service) GetBackupRuns(ctx context.Context, limit int) ([]storage.BackupRun, error) {
+	return s.backups.QueryBackupRuns(ctx, limit)
 }
 
 // GetEvents retrieves events with the given filter.

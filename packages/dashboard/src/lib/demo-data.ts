@@ -262,6 +262,27 @@ function generateTopEvents(segment: Segment): { events: TopEvent[] } {
   };
 }
 
+// The demo shows a healthy installation: nightly dumps, off-site copy in place.
+// A stub returning nothing would read as "this tool cannot tell you", which is
+// the opposite of the point.
+function generateBackups() {
+  const runs = Array.from({ length: 7 }, (_, i) => {
+    const at = new Date();
+    at.setUTCDate(at.getUTCDate() - i);
+    at.setUTCHours(3, 30, 0, 0);
+    return {
+      started_at: at.toISOString(),
+      finished_at: new Date(at.getTime() + 48_000).toISOString(),
+      status: "ok",
+      bytes: 238_000_000 + i * 1_400_000,
+      path: `/opt/bananalytics/backups/bananalytics-${at.toISOString().slice(0, 10)}T03-30-00Z.sql.gz`,
+      remote: "b2:demo-backups",
+      message: "",
+    };
+  });
+  return { last: runs[0], runs };
+}
+
 function generateEventNames(): { names: string[] } {
   return { names: EVENT_NAMES };
 }
@@ -762,6 +783,8 @@ export function getDemoResponse(path: string): unknown {
       return generateTopEvents(segment);
     case "events/names":
       return generateEventNames();
+    case "backups":
+      return generateBackups();
     case "events":
       return generateEvents(params.get("user_id") || undefined);
     case "live":

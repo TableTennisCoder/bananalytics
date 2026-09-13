@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Eye, EyeOff, Code, RefreshCw } from "lucide-react";
 import { useProjects, useRotateKeys } from "@/hooks/use-projects";
+import { BackupStatus } from "@/components/dashboard/backup-status";
 import { ACTIVE_PROJECT_COOKIE } from "@/lib/constants";
 
 export default function SettingsPage() {
@@ -192,6 +193,8 @@ Bananalytics.trackRevenue(9.99, 'EUR', { product_id: 'pro_monthly' });`}
           </div>
         </CardContent>
       </Card>
+
+      <BackupStatus />
     </div>
   );
 }

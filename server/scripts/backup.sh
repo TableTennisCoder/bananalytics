@@ -39,6 +39,39 @@ if ! compose ps --status running postgres 2>/dev/null | grep -q postgres; then
     exit 1
 fi
 
+started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Reports the run into the database the dashboard reads.
+#
+# This script runs on the host and the dashboard runs in a container with no
+# host mounts, so a log file here is invisible there. The database is the one
+# thing both sides reach.
+#
+# Never allowed to fail the backup: a dump that succeeded and could not be
+# announced is still a dump. Text arrives through psql variables rather than
+# being pasted into the statement, so a path with a quote in it cannot end the
+# string early.
+record_run() {
+    local status="$1" bytes="$2" path="$3" message="$4"
+
+    # Fed through stdin rather than -c: psql expands :'variables' only for
+    # input it reads itself, and -c hands the string straight to the server,
+    # which has no idea what a psql variable is.
+    printf '%s\n' \
+        "INSERT INTO backup_runs (started_at, status, bytes, path, remote, message)" \
+        "VALUES (:'started', :'status', NULLIF(:'bytes','')::bigint, :'path', :'remote', :'message');" \
+    | compose exec -T postgres psql --username="$DB_USER" --dbname="$DB_NAME" -q \
+        -v started="$started_at" -v status="$status" -v bytes="$bytes" \
+        -v path="$path" -v remote="${uploaded_to:-}" -v message="$message" \
+        > /dev/null 2>&1 \
+        || echo "WARNING: could not record this run in the database." >&2
+
+    # One row a night adds up slowly, but it adds up. Keep a year.
+    compose exec -T postgres psql --username="$DB_USER" --dbname="$DB_NAME" -q \
+        -c "DELETE FROM backup_runs WHERE finished_at < NOW() - INTERVAL '365 days';" \
+        > /dev/null 2>&1 || true
+}
+
 mkdir -p "$BACKUP_DIR"
 
 timestamp="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
@@ -58,6 +91,7 @@ if ! compose exec -T postgres \
     | gzip -9 > "$partial"; then
     rm -f "$partial"
     echo "ERROR: pg_dump failed — no backup written." >&2
+    record_run failed '' '' 'pg_dump failed'
     exit 1
 fi
 
@@ -67,18 +101,29 @@ size=$(wc -c < "$partial")
 if [ "$size" -lt 1000 ]; then
     rm -f "$partial"
     echo "ERROR: dump is only ${size} bytes — refusing to keep it." >&2
+    record_run failed "$size" '' "dump was only ${size} bytes"
     exit 1
 fi
 
 mv "$partial" "$target"
 echo "Wrote $(du -h "$target" | cut -f1)"
 
+# Only a copy that actually landed counts as off-site. Recording the configured
+# remote regardless would put a tick in the dashboard for a copy that does not
+# exist, which is worse than showing nothing.
+uploaded_to=""
+offsite_note=""
+
 if [ -n "$REMOTE" ]; then
     if ! command -v rclone >/dev/null 2>&1; then
         echo "WARNING: BANANA_BACKUP_REMOTE is set but rclone is not installed — keeping the local copy only." >&2
+        offsite_note="rclone is not installed, so the dump stayed on this machine"
+    elif rclone copy "$target" "$REMOTE"; then
+        echo "Uploaded to $REMOTE"
+        uploaded_to="$REMOTE"
     else
-        echo "Uploading to $REMOTE"
-        rclone copy "$target" "$REMOTE"
+        echo "WARNING: the off-site copy to $REMOTE failed — the local dump is intact." >&2
+        offsite_note="off-site copy to ${REMOTE} failed"
     fi
 fi
 
@@ -89,5 +134,7 @@ if [ "$RETENTION_DAYS" -gt 0 ]; then
         echo "Pruned $deleted dump(s) older than $RETENTION_DAYS days"
     fi
 fi
+
+record_run ok "$size" "$(cd "$(dirname "$target")" && pwd)/$(basename "$target")" "$offsite_note"
 
 echo "Backup complete."
