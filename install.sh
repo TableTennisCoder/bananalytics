@@ -651,7 +651,63 @@ fetch_files() {
         mv "${INSTALL_DIR}/${f}.new" "${INSTALL_DIR}/${f}"
         dim "$f"
     done
+
+    # The backup and restore scripts come down with everything else, because a
+    # database nobody can restore is not a database anybody should trust. Both
+    # resolve their paths from their own location, so scripts/ next to the
+    # compose file and the .env is exactly where they expect to be.
+    mkdir -p "${INSTALL_DIR}/scripts"
+    for f in backup.sh restore.sh; do
+        curl -fsSL "${RAW_BASE}/scripts/${f}" -o "${INSTALL_DIR}/scripts/${f}.new" \
+            || die "Could not download scripts/${f} from ${RAW_BASE}."
+        mv "${INSTALL_DIR}/scripts/${f}.new" "${INSTALL_DIR}/scripts/${f}"
+        chmod +x "${INSTALL_DIR}/scripts/${f}"
+        dim "scripts/$f"
+    done
+
     mkdir -p "${INSTALL_DIR}/geoip"
+}
+
+# The tag that identifies our line in the crontab, so re-running the installer
+# recognises its own work instead of scheduling a second nightly dump.
+readonly CRON_TAG="bananalytics-backup"
+
+schedule_backups() {
+    step "Backups"
+
+    if ! command -v crontab > /dev/null 2>&1; then
+        warn "No crontab on this machine, so nothing was scheduled."
+        dim "Run ${INSTALL_DIR}/scripts/backup.sh from whatever this system"
+        dim "uses for scheduled jobs."
+        return
+    fi
+
+    if crontab -l 2> /dev/null | grep -q "$CRON_TAG"; then
+        info "Nightly backup already scheduled."
+        return
+    fi
+
+    if ! confirm "Schedule a nightly database backup at 03:30"; then
+        info "Skipped."
+        dim "Schedule it later: ${INSTALL_DIR}/scripts/backup.sh"
+        return
+    fi
+
+    local line
+    line="30 3 * * * ${INSTALL_DIR}/scripts/backup.sh 2>&1 | logger -t ${CRON_TAG}"
+
+    # Append rather than replace: this machine may well have other jobs, and
+    # `crontab -` overwrites the whole table.
+    if ! { crontab -l 2> /dev/null; printf '%s\n' "$line"; } | crontab -; then
+        warn "Could not write the crontab. Add this line yourself:"
+        dim "$line"
+        return
+    fi
+
+    info "Nightly at 03:30, kept for 14 days."
+    dim "Dumps land in ${INSTALL_DIR}/backups"
+    dim "A copy on the same disk as the database does not survive losing that"
+    dim "disk — set BANANA_BACKUP_REMOTE in .env to an rclone remote."
 }
 
 wait_for_health() {
@@ -834,6 +890,7 @@ main() {
     compose up -d || die "Failed to start. Check: docker compose -f ${INSTALL_DIR}/docker-compose.yml logs"
 
     wait_for_health
+    schedule_backups
 
     local address url
     address="$(grep '^BANANA_DOMAIN=' "${INSTALL_DIR}/.env" | cut -d= -f2-)"
@@ -857,6 +914,8 @@ main() {
     printf '%s\n' "$(rail)"
     dim "Config    ${INSTALL_DIR}/.env"
     dim "Logs      docker compose -f ${INSTALL_DIR}/docker-compose.yml logs -f"
+    dim "Backup    ${INSTALL_DIR}/scripts/backup.sh"
+    dim "Restore   ${INSTALL_DIR}/scripts/restore.sh <dump>"
     dim "Upgrade   re-run this installer"
     finish "Done"
 }

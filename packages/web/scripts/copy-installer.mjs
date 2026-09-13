@@ -17,6 +17,27 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = join(here, "..", "..", "..", "install.sh");
 const target = join(here, "..", "public", "install.sh");
 
+/**
+ * A shell script that lost its shebang, or picked up CRLF endings on the way
+ * through a Windows checkout, fails on the target machine with "bad
+ * interpreter" — and looks perfectly fine in an editor.
+ */
+function assertRunnable(path, label) {
+  const contents = readFileSync(path, "utf8");
+  if (!contents.startsWith("#!")) {
+    console.error(`\ncopy-installer: ${label} does not start with a shebang.\n`);
+    process.exit(1);
+  }
+  if (contents.includes("\r\n")) {
+    console.error(
+      `\ncopy-installer: ${label} has CRLF line endings.\n` +
+        `The kernel would look for an interpreter called 'bash\\r'.\n` +
+        `Check .gitattributes and re-checkout the file.\n`,
+    );
+    process.exit(1);
+  }
+}
+
 if (!existsSync(source)) {
   console.error(
     `\ncopy-installer: ${source} is missing.\n` +
@@ -26,23 +47,8 @@ if (!existsSync(source)) {
   process.exit(1);
 }
 
-// A shell script that lost its shebang, or picked up CRLF endings on the way
-// through a Windows checkout, fails on the target machine with "bad
-// interpreter" — and the file looks perfectly fine in an editor. Catch it here
-// rather than on someone's fresh server.
-const contents = readFileSync(source, "utf8");
-if (!contents.startsWith("#!")) {
-  console.error("\ncopy-installer: install.sh does not start with a shebang.\n");
-  process.exit(1);
-}
-if (contents.includes("\r\n")) {
-  console.error(
-    "\ncopy-installer: install.sh has CRLF line endings.\n" +
-      "The kernel would look for an interpreter called 'bash\\r'.\n" +
-      "Check .gitattributes and re-checkout the file.\n",
-  );
-  process.exit(1);
-}
+// Catch a broken script here rather than on someone's fresh server.
+assertRunnable(source, "install.sh");
 
 mkdirSync(dirname(target), { recursive: true });
 copyFileSync(source, target);
@@ -63,4 +69,28 @@ for (const name of ["docker-compose.yml", "Caddyfile"]) {
   }
   copyFileSync(from, join(deployTarget, name));
   console.log(`copy-installer: deploy/${name} -> public/deploy/${name}`);
+}
+
+// The installer drops these next to the compose file so an installation has a
+// way to back itself up and a way back from a dump. They live under server/ in
+// the repository because that is where they are used from during development;
+// what matters is that they are reachable at the same origin as everything
+// else the installer fetches.
+const scriptSource = join(here, "..", "..", "..", "server", "scripts");
+const scriptTarget = join(deployTarget, "scripts");
+mkdirSync(scriptTarget, { recursive: true });
+
+for (const name of ["backup.sh", "restore.sh"]) {
+  const from = join(scriptSource, name);
+  if (!existsSync(from)) {
+    console.error(
+      `\ncopy-installer: server/scripts/${name} is missing.\n` +
+        `The installer fetches it, so publishing without it would leave every\n` +
+        `new installation unable to back itself up.\n`,
+    );
+    process.exit(1);
+  }
+  assertRunnable(from, `server/scripts/${name}`);
+  copyFileSync(from, join(scriptTarget, name));
+  console.log(`copy-installer: server/scripts/${name} -> public/deploy/scripts/${name}`);
 }

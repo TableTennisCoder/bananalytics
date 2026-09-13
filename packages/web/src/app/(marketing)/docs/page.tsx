@@ -622,6 +622,37 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
               . The manual steps below do the same thing by hand.
             </p>
 
+            <p className="text-sm text-muted-foreground">
+              <strong>Backups.</strong> The installer puts{" "}
+              <code className="font-mono text-xs">backup.sh</code> and{" "}
+              <code className="font-mono text-xs">restore.sh</code> in{" "}
+              <code className="font-mono text-xs">/opt/bananalytics/scripts/</code>{" "}
+              and offers to schedule a nightly dump at 03:30, kept for 14 days
+              in <code className="font-mono text-xs">/opt/bananalytics/backups</code>.
+              Say no and nothing is scheduled; re-run the installer later and it
+              asks again. A dump on the same disk as the database does not
+              survive losing that disk, so set{" "}
+              <code className="font-mono text-xs">BANANA_BACKUP_REMOTE</code> in{" "}
+              <code className="font-mono text-xs">.env</code> to an rclone remote
+              and the script copies each one off the machine. Restoring{" "}
+              <strong>replaces</strong> the database:{" "}
+              <code className="font-mono text-xs">./scripts/restore.sh backups/bananalytics-….sql.gz</code>.
+              Try it once on a throwaway server before you ever need it.
+            </p>
+
+            <div className="mt-8 rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm text-muted-foreground">
+                Everything below is the same deployment by hand, for people who
+                would rather not pipe a script into root. It puts the repository
+                in <code className="font-mono text-xs">/opt/bananalytics</code>{" "}
+                and works out of{" "}
+                <code className="font-mono text-xs">/opt/bananalytics/server</code>,
+                so the paths differ from the installer&apos;s &mdash; if you used
+                the one command above, you want the section you just read, not
+                these steps.
+              </p>
+            </div>
+
             <h4 className="text-base font-semibold mt-8 mb-3">
               1. Clone the repo
             </h4>
@@ -709,14 +740,21 @@ docker compose logs --tail 50
               6. Schedule backups
             </h4>
             <p className="text-sm text-muted-foreground">
-              Nothing backs up on its own. The repo ships a dump script &mdash;
-              schedule it, and point{" "}
+              Nothing backs up on its own on this path &mdash; the installer
+              offers to schedule it, doing this by hand does not. Point{" "}
               <code className="font-mono text-xs">BANANA_BACKUP_REMOTE</code> at
-              an rclone remote, because a copy on the same disk as the database
-              does not survive losing that disk.
+              an rclone remote too, because a copy on the same disk as the
+              database does not survive losing that disk.
             </p>
             <CodeBlock>{`# crontab -e
 30 3 * * * cd /opt/bananalytics/server && ./scripts/backup.sh 2>&1 | logger -t bananalytics-backup`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              That path is the clone layout. An installer-based machine has the
+              scripts in{" "}
+              <code className="font-mono text-xs">/opt/bananalytics/scripts/</code>{" "}
+              instead, with no{" "}
+              <code className="font-mono text-xs">server/</code> directory.
+            </p>
             <p className="text-sm text-muted-foreground">
               Restoring replaces the database with a dump:{" "}
               <code className="font-mono text-xs">./scripts/restore.sh backups/bananalytics-….sql.gz</code>.
@@ -726,6 +764,22 @@ docker compose logs --tail 50
             <h4 className="text-base font-semibold mt-8 mb-3">
               Deploying updates
             </h4>
+            <p className="text-sm text-muted-foreground">
+              If you installed with the one command, re-run it. It keeps your
+              configuration and data, pulls the current images and restarts:
+            </p>
+            <CodeBlock>{`curl -fsSL https://bananalytics.xyz/install.sh | sudo bash`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              It prints the version it is about to start. If that is a specific
+              number rather than{" "}
+              <code className="font-mono text-xs">latest</code>, the installation
+              is pinned and will stay there &mdash; re-run with{" "}
+              <code className="font-mono text-xs">--version latest</code> to move
+              it to the newest release.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              From a clone, build it yourself instead:
+            </p>
             <CodeBlock>{`cd /opt/bananalytics
 git pull
 cd server
