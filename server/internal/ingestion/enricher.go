@@ -21,10 +21,25 @@ func NewEnricher(c clock.Clock, geoResolver *geo.Resolver) *Enricher {
 	return &Enricher{clock: c, geo: geoResolver}
 }
 
+// emptyObject is what a missing JSON blob becomes on the way to storage.
+var emptyObject = json.RawMessage(`{}`)
+
 // Enrich adds server timestamp, session ID, and geo data to the event.
 func (e *Enricher) Enrich(event *domain.Event, projectID string, clientIP string) {
 	event.ProjectID = projectID
 	event.ServerTS = e.clock.Now().UTC().Truncate(time.Microsecond)
+
+	// Both columns are NOT NULL, and an omitted field arrives here as nil — so
+	// an otherwise valid event sent by hand, without properties or context,
+	// used to pass validation and then be dropped by the database with nothing
+	// said about it. The SDK always sends both; anyone integrating over HTTP
+	// has no reason to expect they are mandatory, and they are not.
+	if len(event.Properties) == 0 {
+		event.Properties = emptyObject
+	}
+	if len(event.Context) == 0 {
+		event.Context = emptyObject
+	}
 
 	if event.SessionID == "" {
 		event.SessionID = extractSessionID(event.Context)

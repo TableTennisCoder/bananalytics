@@ -367,3 +367,36 @@ func TestIngestSucceedsWhenIdentityLinkFails(t *testing.T) {
 		t.Errorf("expected the event to be stored, got %d", len(repo.insertedEvents))
 	}
 }
+
+// An event sent over plain HTTP — no SDK — omits properties and context. Both
+// columns are NOT NULL, so without a server-side default the row is dropped
+// after validation has already passed it, and the caller is told only that one
+// event was "rejected".
+func TestHandleIngest_FillsMissingJSONBlobs(t *testing.T) {
+	handler, repo := setupHandler(t, nil)
+
+	raw := `{"batch":[{"event":"hello_bananalytics","type":"track",` +
+		`"anonymousId":"terminal-test","messageId":"m-1",` +
+		`"timestamp":"2025-06-01T12:00:00Z"}]}`
+
+	req := httptest.NewRequest("POST", "/v1/ingest", bytes.NewReader([]byte(raw)))
+	req.Header.Set("Authorization", "Bearer rk_testkey123")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(repo.insertedEvents) != 1 {
+		t.Fatalf("expected 1 inserted event, got %d", len(repo.insertedEvents))
+	}
+
+	got := repo.insertedEvents[0]
+	if string(got.Properties) != "{}" {
+		t.Errorf("properties = %q, want {}", string(got.Properties))
+	}
+	if string(got.Context) != "{}" {
+		t.Errorf("context = %q, want {}", string(got.Context))
+	}
+}
