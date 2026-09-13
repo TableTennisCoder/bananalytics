@@ -304,12 +304,33 @@ export default function DocsPage() {
             id="quick-start"
           >
             <p>
-              Get Bananalytics running locally in 5 minutes with Docker. For a
-              real deployment, see{" "}
+              One command on a server you own. It installs Docker if it is
+              missing, asks for your domain, generates a database password,
+              pulls the images and starts everything behind HTTPS.
+            </p>
+            <CodeBlock>{`curl -fsSL https://bananalytics.xyz/install.sh | sudo bash`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Point your domain&apos;s A record at the server first &mdash; Caddy
+              needs it in place to obtain a TLS certificate, and the installer
+              says so plainly if it is not there yet. It finishes by printing
+              your URL; open it and you land on{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                /setup
+              </code>
+              . No domain yet, a server that already runs nginx, upgrades,
+              uninstall &mdash; all of that is under{" "}
               <a href="#hosting" className="text-primary hover:underline">
                 Self-Hosting
               </a>
               .
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              Or run it on your own machine
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              To try it locally, or to work on Bananalytics itself, skip the
+              installer and drive Compose directly.
             </p>
             <CodeBlock title="1. Clone and configure">{`git clone https://github.com/TableTennisCoder/bananalytics.git
 cd bananalytics/server
@@ -353,12 +374,17 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
               .
             </p>
 
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              Then, whichever way you got here
+            </h4>
+
             <p className="text-sm pt-2">
-              <strong>3. Create your admin account.</strong> Open{" "}
+              <strong>1. Create your admin account.</strong> Open your server&apos;s
+              URL, or{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                 http://localhost:3000
               </code>{" "}
-              in your browser. The first time you visit, you&apos;ll be
+              if you started it locally. The first time you visit, you&apos;ll be
               redirected to{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                 /setup
@@ -373,7 +399,7 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
             </p>
 
             <p className="text-sm pt-2">
-              <strong>4. Create your first project.</strong>{" "}
+              <strong>2. Create your first project.</strong>{" "}
               After signup you&apos;re dropped into the dashboard. Click{" "}
               <strong>&quot;New Project&quot;</strong>{" "}
               (or use the project switcher in the topbar), give it a name, and
@@ -408,13 +434,19 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
             </p>
 
             <p className="text-sm pt-2">
-              <strong>4. Drop the write key into your app.</strong> Jump to the{" "}
+              <strong>3. Drop the write key into your app.</strong> Jump to the{" "}
               <a href="#sdk" className="text-primary hover:underline">
                 React Native SDK
               </a>{" "}
               section below — install the package, paste your{" "}
               <code className="font-mono text-xs">rk_…</code>{" "}
               key, and you&apos;re tracking events.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Until the first event arrives the dashboard says so, and shows
+              those same two lines already filled in with your key and your
+              server&apos;s address. It swaps itself for the real dashboard the
+              moment something lands.
             </p>
           </DocSection>
           )}
@@ -544,20 +576,20 @@ BANANA_CORS_ORIGINS=*`}</CodeBlock>
             </div>
 
             <h4 className="text-base font-semibold mt-8 mb-3">
-              The short way
+              The installer, in full
             </h4>
             <p>
-              One command on a fresh server. It installs Docker if it is missing,
-              asks for your domain, generates a database password, pulls the
-              images and starts everything.
+              The one command from{" "}
+              <a href="#quick-start" className="text-primary hover:underline">
+                Quick Start
+              </a>{" "}
+              covers the common case. Everything it can be told to do differently
+              is here.
             </p>
             <CodeBlock>{`curl -fsSL https://bananalytics.xyz/install.sh | sudo bash`}</CodeBlock>
             <p className="text-sm text-muted-foreground">
-              Point your domain&apos;s A record at the server first &mdash; Caddy
-              needs it in place to obtain a TLS certificate, and the installer
-              will tell you if it is not. Run the same command again later to
-              upgrade; it never overwrites your configuration or data. For
-              automation, pass{" "}
+              Run the same command again later to upgrade; it never overwrites
+              your configuration or data. For automation, pass{" "}
               <code className="font-mono text-xs">--domain analytics.example.com --yes</code>{" "}
               after{" "}
               <code className="font-mono text-xs">bash -s --</code>. To remove it
