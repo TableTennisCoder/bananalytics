@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { Activity, Users, Radio, Zap, Globe, TrendingUp, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,7 +15,9 @@ import { Delta } from "@/components/dashboard/delta";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ActiveUsersChart } from "@/components/dashboard/active-users-chart";
+import { WaitingForFirstEvent } from "@/components/dashboard/waiting-for-first-event";
 import { WorldMap } from "@/components/charts/world-map";
+import { useFirstEvent } from "@/hooks/use-first-event";
 import { useStats } from "@/hooks/use-stats";
 import { useTimeseries } from "@/hooks/use-timeseries";
 import { useTopEvents } from "@/hooks/use-events";
@@ -46,8 +49,22 @@ export default function DashboardPage() {
   const { data: topEvents } = useTopEvents(from, to, 8);
   const { data: live } = useLive();
   const { data: geo } = useGeo("country");
+  const { startedEmpty, arrived } = useFirstEvent();
+  // Stable identity: the welcome screen hands off on a timer keyed to this
+  // callback, and a fresh one on every poll would keep restarting the clock.
+  const [dismissed, setDismissed] = useState(false);
+  const dismiss = useCallback(() => setDismissed(true), []);
 
   const topEventsTotal = topEvents?.reduce((s, e) => s + e.count, 0) ?? 0;
+
+  // A project that has never received an event has no numbers to show, and six
+  // zeroes answer none of the questions someone has ten minutes after
+  // installing. Show them how to send one instead.
+  if (startedEmpty && !dismissed) {
+    return (
+      <WaitingForFirstEvent arrived={arrived} onDone={dismiss} />
+    );
+  }
 
   return (
     <div className="space-y-6">

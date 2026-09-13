@@ -1,8 +1,10 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isDemoMode } from "@/lib/demo-mode";
 import { DEMO_PROJECT } from "@/lib/demo-data";
+import { ACTIVE_PROJECT_COOKIE } from "@/lib/constants";
 import type { Project, ProjectsListResponse, RotatedKeys } from "@/types/projects";
 
 async function fetchProjects(): Promise<Project[]> {
@@ -60,4 +62,37 @@ export function useRotateKeys() {
     mutationFn: rotateKeys,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
+}
+
+/**
+ * The cookie only changes through the switcher, which navigates afterwards, so
+ * there is no store to subscribe to — just a value to read on render.
+ */
+const noUpdates = () => () => {};
+
+function readActiveId(): string | null {
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${ACTIVE_PROJECT_COOKIE}=`));
+  return match ? match.split("=")[1] : null;
+}
+
+/**
+ * The project the dashboard is currently pointed at.
+ *
+ * The switcher records the choice in a cookie the backend proxy reads too, so
+ * the cookie — not React state — is the source of truth. Falls back to the
+ * first project, which is what someone with exactly one project has selected
+ * whether they ever touched the switcher or not.
+ *
+ * Read through useSyncExternalStore because there is no cookie on the server:
+ * the server snapshot is null, and React reconciles the real value in without
+ * the markup disagreeing with itself on hydration.
+ */
+export function useActiveProject() {
+  const { data: projects, isLoading } = useProjects();
+  const activeId = useSyncExternalStore(noUpdates, readActiveId, () => null);
+
+  const project = projects?.find((p) => p.id === activeId) ?? projects?.[0];
+  return { project, isLoading };
 }
