@@ -102,3 +102,49 @@ describe('Batcher', () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 });
+
+describe('Batcher — batches larger than the server accepts', () => {
+  const logger = new Logger(false);
+
+  // The server rejects a batch over 500 events outright with a 400, and a 400
+  // is not retried — so an oversized flush does not fail, it deletes. A device
+  // offline long enough to queue more than that is the case the queue is for.
+  it('splits a long queue into requests the server will take', async () => {
+    const queue = new EventQueue(2000, logger);
+    const transport = new Transport('https://test.example.com', 'rk_test', logger);
+    const send = jest.spyOn(transport, 'send').mockResolvedValue(undefined);
+    const batcher = new Batcher(queue, transport, logger, 30000, 20, 0);
+
+    for (let i = 0; i < 1200; i++) queue.push(makeEvent(`m-${i}`));
+    await batcher.flush();
+
+    expect(send.mock.calls.map((c) => (c[0] as EventPayload[]).length)).toEqual([500, 500, 200]);
+
+    // Order has to survive the split: the persisted queue exists to keep
+    // offline events in the sequence they happened.
+    const sent = send.mock.calls.flatMap((c) => c[0] as EventPayload[]);
+    expect(sent.map((e) => e.messageId)).toEqual(
+      Array.from({ length: 1200 }, (_, i) => `m-${i}`),
+    );
+  });
+
+  it('re-queues from the failed chunk on, without re-sending accepted ones', async () => {
+    const queue = new EventQueue(2000, logger);
+    const transport = new Transport('https://test.example.com', 'rk_test', logger);
+    const send = jest
+      .spyOn(transport, 'send')
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error('server down'));
+    const batcher = new Batcher(queue, transport, logger, 30000, 20, 0);
+
+    for (let i = 0; i < 1200; i++) queue.push(makeEvent(`m-${i}`));
+    await batcher.flush();
+
+    // First chunk landed, the second failed, so the third is never attempted.
+    expect(send).toHaveBeenCalledTimes(2);
+    // The 700 events from the failed chunk onwards are back, the accepted 500
+    // are not — re-sending them would only duplicate.
+    expect(queue.length).toBe(700);
+    expect(queue.peek()[0].messageId).toBe('m-500');
+  });
+});

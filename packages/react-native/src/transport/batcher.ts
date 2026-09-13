@@ -6,6 +6,17 @@ import { Transport } from './transport';
 import { withRetry } from './retry';
 
 /**
+ * Most events the server accepts in a single request.
+ *
+ * Mirrors `domain.MaxBatchSize`. Going over it does not get the batch trimmed,
+ * it gets the whole request rejected with a 400 — and a 400 is deliberately not
+ * retried, so an oversized flush does not fail, it deletes. The default queue
+ * holds up to 1000 events, which a device offline for an afternoon reaches
+ * easily: precisely the case the queue exists for.
+ */
+const MAX_BATCH_SIZE = 500;
+
+/**
  * Manages automatic batching and flushing of events.
  * Flushes on a timer interval or when the queue reaches the threshold.
  */
@@ -97,15 +108,27 @@ export class Batcher {
     const events = this.queue.flush();
 
     try {
-      await withRetry(
-        () => this.transport.send(events),
-        this.maxRetries,
-        this.logger,
-      );
-      this.logger.debug(`Flushed ${events.length} events`);
-    } catch (err) {
-      this.logger.error('Flush failed after retries, re-queueing events', err);
-      this.queue.unshift(events);
+      // Oldest first, one request at a time. Sending them in parallel would be
+      // faster and would also let a later batch land before an earlier one,
+      // which is the ordering the persisted queue exists to preserve.
+      for (let sent = 0; sent < events.length; sent += MAX_BATCH_SIZE) {
+        const chunk = events.slice(sent, sent + MAX_BATCH_SIZE);
+        try {
+          await withRetry(
+            () => this.transport.send(chunk),
+            this.maxRetries,
+            this.logger,
+          );
+          this.logger.debug(`Flushed ${chunk.length} events`);
+        } catch (err) {
+          // Put back this chunk and everything after it, then stop: whatever
+          // stopped this request will stop the next one too, and the events
+          // already accepted must not be sent twice.
+          this.logger.error('Flush failed after retries, re-queueing events', err);
+          this.queue.unshift(events.slice(sent));
+          return;
+        }
+      }
     } finally {
       this.flushing = false;
     }
