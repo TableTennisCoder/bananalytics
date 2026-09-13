@@ -126,6 +126,19 @@ export class BananalyticsClient {
 
       this.batcher.start();
       this.initialized = true;
+
+      // A cold start is not an AppState transition, so the lifecycle tracker
+      // never sees it — it only ever reports coming *back* from the background.
+      // Without this the first event of a fresh launch is whatever the person
+      // happened to tap, and the top of every funnel is short by everyone who
+      // opened the app and left again.
+      //
+      // Fired after identity and session have been restored, so it carries the
+      // same anonymous ID as the rest of the launch rather than a fresh one.
+      if (this.config.trackAppLifecycle) {
+        this.track('$app_opened');
+      }
+
       this.logger.debug('Bananalytics SDK initialized');
     } catch (err) {
       this.logger.error('Failed to initialize Bananalytics SDK', err);
@@ -268,10 +281,20 @@ export class BananalyticsClient {
 
   /**
    * Opts the user out of analytics tracking. Stops all event collection.
+   *
+   * Anything already queued is discarded rather than sent. Somebody opting out
+   * means the data collected up to that moment too — it is still sitting on
+   * their device, and a queue that keeps draining afterwards would deliver
+   * exactly what they asked not to be delivered.
    */
   optOut(): void {
     this.consent.optOut().catch((err) => {
       this.logger.error('Failed to opt out', err);
+    });
+
+    this.queue.clear();
+    this.persister.clearQueue().catch((err) => {
+      this.logger.error('Failed to clear persisted queue on opt-out', err);
     });
   }
 

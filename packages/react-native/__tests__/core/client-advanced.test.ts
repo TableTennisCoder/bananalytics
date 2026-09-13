@@ -118,13 +118,54 @@ describe('BananalyticsClient — advanced scenarios', () => {
   });
 
   it('handles flush when no events queued', async () => {
+    // Lifecycle tracking off, so the cold-start event does not make this a
+    // flush of one event rather than the empty flush it is testing.
     const client = new BananalyticsClient(
-      { apiKey: 'rk_test', endpoint: 'https://test.com' },
+      { apiKey: 'rk_test', endpoint: 'https://test.com', trackAppLifecycle: false },
       storage,
     );
     await client.initialize();
 
     await client.flush();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('records a cold start, which produces no AppState transition', async () => {
+    // beforeEach clears the shared fetch mock, and this test needs the request
+    // to succeed rather than fall into the retry backoff.
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, accepted: 1 }),
+    });
+
+    const client = new BananalyticsClient(
+      { apiKey: 'rk_test', endpoint: 'https://test.com' },
+      storage,
+    );
+    await client.initialize();
+    await client.flush();
+
+    const ingest = (global.fetch as jest.Mock).mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].endsWith('/v1/ingest'),
+    );
+    expect(ingest).toBeDefined();
+
+    const body = JSON.parse(ingest![1].body);
+    const names = body.batch.map((e: { event: string }) => e.event);
+    expect(names).toContain('$app_opened');
+  });
+
+  it('sends nothing that was queued before opting out', async () => {
+    const client = new BananalyticsClient(
+      { apiKey: 'rk_test', endpoint: 'https://test.com' },
+      storage,
+    );
+    await client.initialize();
+    client.track('before_opt_out');
+
+    client.optOut();
+    await client.flush();
+
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
