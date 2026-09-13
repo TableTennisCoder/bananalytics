@@ -688,8 +688,87 @@ fetch_files() {
 # recognises its own work instead of scheduling a second nightly dump.
 readonly CRON_TAG="bananalytics-backup"
 
+# Moves an existing installation to a different address.
+#
+# Both the docs and this script's own closing note tell people to "re-run with
+# --domain later to switch", which until now did nothing at all: the upgrade
+# path read the version and ignored everything else. Somebody who installed on
+# an IP and then bought a domain had no way forward except reinstalling.
+#
+# Caddy takes its site address from the environment, so rewriting .env and
+# letting the usual `compose up -d` recreate the container is the whole job —
+# the certificate for the new name is issued on the first request to it.
+change_address() {
+    local new="$1" env_file="${INSTALL_DIR}/.env" current site
+
+    current="$(grep '^BANANA_DOMAIN=' "$env_file" | cut -d= -f2-)"
+    if [ "$new" = "$current" ]; then
+        info "Already serving ${new}."
+        return
+    fi
+
+    if ! is_ip "$new" && ! looks_like_host "$new"; then
+        die "--domain must be a hostname or an IP address, got: $new"
+    fi
+
+    step "Changing address"
+    info "${current:-unset} → ${new}"
+
+    if ! is_ip "$new"; then
+        printf '\n'
+        if ! check_dns "$new"; then
+            printf '\n'
+            confirm "Continue anyway" \
+                || die "Stopped. Point $new at this machine and run this again."
+        fi
+    fi
+
+    # A machine behind an existing proxy serves "http://:PORT" and that must
+    # survive: the hostname there is for links and CORS, and the proxy in front
+    # is what terminates TLS.
+    site="$(grep '^BANANA_SITE_ADDRESS=' "$env_file" | cut -d= -f2-)"
+    case "$site" in
+        http://:*) dim "Behind a proxy — leaving the listen address alone." ;;
+        *) sed -i "s|^BANANA_SITE_ADDRESS=.*|BANANA_SITE_ADDRESS=${new}|" "$env_file" ;;
+    esac
+
+    sed -i "s|^BANANA_DOMAIN=.*|BANANA_DOMAIN=${new}|" "$env_file"
+    sed -i "s|^BANANA_CORS_ORIGINS=.*|BANANA_CORS_ORIGINS=https://${new}|" "$env_file"
+    info "Rewrote .env. Caddy picks it up on the restart below."
+}
+
+# rclone is what backup.sh uses to copy a dump off the machine. It is installed
+# up front rather than when somebody first wants it, because the moment they
+# want it is the moment they set BANANA_BACKUP_REMOTE — and a missing rclone
+# turns that into a warning inside a cron job, which is a place nobody reads.
+#
+# Never fatal: a machine without an off-site copy still backs itself up.
+ensure_rclone() {
+    if command -v rclone > /dev/null 2>&1; then
+        dim "rclone $(rclone version 2> /dev/null | head -1 | awk '{print $2}') already installed"
+        return
+    fi
+
+    case "$OS_ID" in
+        ubuntu|debian|raspbian)
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rclone > /dev/null 2>&1 ;;
+        fedora|centos|rhel|rocky|almalinux)
+            dnf install -y -q rclone > /dev/null 2>&1 ;;
+        *)
+            dim "No rclone package known for $OS_NAME — install it if you want off-site copies."
+            return ;;
+    esac
+
+    if command -v rclone > /dev/null 2>&1; then
+        dim "rclone installed, for copying dumps off this machine"
+    else
+        dim "Could not install rclone. Backups stay local until it is present."
+    fi
+}
+
 schedule_backups() {
     step "Backups"
+    ensure_rclone
 
     if ! command -v crontab > /dev/null 2>&1; then
         warn "No crontab on this machine, so nothing was scheduled."
@@ -858,6 +937,8 @@ main() {
     if [ "$upgrading" -eq 1 ]; then
         step "Existing installation found"
         info "Keeping your configuration and data as they are."
+
+        [ -n "$DOMAIN" ] && change_address "$DOMAIN"
 
         if [ "$VERSION_SET" -eq 1 ]; then
             sed -i "s/^BANANA_VERSION=.*/BANANA_VERSION=${VERSION}/" "${INSTALL_DIR}/.env"
