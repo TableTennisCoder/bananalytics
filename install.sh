@@ -24,6 +24,10 @@ readonly RAW_BASE="${BASE_URL}/deploy"
 INSTALL_DIR="${BANANA_INSTALL_DIR:-/opt/bananalytics}"
 
 VERSION="${BANANA_VERSION:-latest}"
+# Whether --version was actually given. "latest" on the command line has to mean
+# something different from no flag at all, or a pinned installation can never be
+# moved back to the newest release — the variable holds "latest" either way.
+VERSION_SET=0
 DOMAIN="${BANANA_DOMAIN:-}"
 RETENTION="${BANANA_RAW_RETENTION_MONTHS:-0}"
 ASSUME_YES=0
@@ -319,7 +323,9 @@ usage() {
 Bananalytics installer
 
   --domain <host>      Address to serve from: a domain, or this server's IP
-  --version <tag>      Image tag to install (default: latest)
+  --version <tag>      Image tag to install (default: latest). On an existing
+                       installation this also changes the pinned tag, so
+                       --version latest moves a pinned one back to the newest.
   --retention <n>      Months of raw events to keep; 0 keeps them forever.
                        Rarely wanted at install time — change it in .env later.
   --behind-proxy <p>   This machine already serves 80/443. Listen on
@@ -703,8 +709,8 @@ main() {
         case "$1" in
             --domain)    DOMAIN="${2:-}";    shift 2 ;;
             --domain=*)  DOMAIN="${1#*=}";   shift ;;
-            --version)   VERSION="${2:-}";   shift 2 ;;
-            --version=*) VERSION="${1#*=}";  shift ;;
+            --version)   VERSION="${2:-}";   VERSION_SET=1; shift 2 ;;
+            --version=*) VERSION="${1#*=}";  VERSION_SET=1; shift ;;
             --retention) RETENTION="${2:-}"; shift 2 ;;
             --retention=*) RETENTION="${1#*=}"; shift ;;
             --dir)       INSTALL_DIR="${2:-}"; shift 2 ;;
@@ -780,10 +786,23 @@ main() {
     if [ "$upgrading" -eq 1 ]; then
         step "Existing installation found"
         info "Keeping your configuration and data as they are."
-        # Let --version override the pinned tag on an upgrade.
-        if [ "$VERSION" != "latest" ]; then
+
+        if [ "$VERSION_SET" -eq 1 ]; then
             sed -i "s/^BANANA_VERSION=.*/BANANA_VERSION=${VERSION}/" "${INSTALL_DIR}/.env"
             info "Switching to version ${VERSION}."
+        else
+            # Re-running this script is how people upgrade. An installation
+            # pinned to a tag stays on it, pulls the same images it already has
+            # and finishes looking like a successful upgrade — so the version
+            # is named out loud, and a pin says how to leave it.
+            local pinned
+            pinned="$(grep '^BANANA_VERSION=' "${INSTALL_DIR}/.env" | cut -d= -f2-)"
+            [ -n "$pinned" ] || pinned="latest"
+            info "Version ${pinned}."
+            if [ "$pinned" != "latest" ]; then
+                warn "Pinned to ${pinned}, so this run will not move it."
+                warn "For the newest release, re-run with: --version latest"
+            fi
         fi
     else
         step "Configuring"
