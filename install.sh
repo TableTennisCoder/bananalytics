@@ -637,6 +637,22 @@ BANANA_ROLLUP_INTERVAL=60s
 # Minimum is 2. There is no undo.
 BANANA_RAW_RETENTION_MONTHS=${retention}
 
+# ── Backups ───────────────────────────────────────────────────────────────────
+# scripts/backup.sh writes gzipped dumps here and keeps them for 14 days.
+#BANANA_BACKUP_DIR=./backups
+#BANANA_BACKUP_RETENTION_DAYS=14
+
+# An off-site copy. A dump on the same disk as the database survives a dropped
+# table; it does not survive losing the machine, which is the failure that
+# actually ends small deployments. Any rclone remote works — S3, B2, Storj,
+# anything rclone speaks:
+#
+#   apt install rclone && rclone config     # once, creates the remote
+#   BANANA_BACKUP_REMOTE=b2:my-bucket/bananalytics
+#
+# Left empty, dumps stay on this machine only.
+BANANA_BACKUP_REMOTE=
+
 BANANA_LOG_LEVEL=info
 EOF
     chmod 600 "${INSTALL_DIR}/.env"
