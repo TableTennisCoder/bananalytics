@@ -163,7 +163,7 @@ Diagramme zeigt: es gibt keinen Menschen, der bei einer komischen Zahl stutzt.
 - [ ] **DRINGEND — Demo- und Login-Button sind live tot.** Beide zeigen auf `app.bananalytics.xyz`; das DNS zeigt auf den VPS, aber Caddy bedient nur `BANANA_DOMAIN` (= `test.`), also kein Zertifikat, HTTP 000. Der Code-Fallback in `dashboard-url.ts` (→ `test.`) greift **nur lokal**: in Produktion ist `NEXT_PUBLIC_DASHBOARD_URL` in den Hosting-Einstellungen auf `app.` gesetzt und gewinnt. Sofort-Fix (30 Sekunden, nur der Betreiber kann es): die Variable dort auf `https://test.bananalytics.xyz` stellen und neu deployen. Sauberer Fix: `app.` auf dem VPS in `BANANA_SITE_ADDRESS` aufnehmen, `docker compose up -d`, dann die Variable zurück auf `app.`
 - [ ] **`www.bananalytics.xyz`** antwortet über HTTP, hat über HTTPS kein Zertifikat
 - [x] ~~Nackter `https://github.com`-Link im Footer~~ — zeigt jetzt aufs Repo
-- [ ] **Nackter `https://github.com`-Link auf der About-Seite** (`about/page.tsx:86`)
+- [x] ~~Nackter `https://github.com`-Link auf der About-Seite~~ — zeigt aufs Repo; der `x.com`-Link ohne Handle ist raus, bis es eins gibt
 - [x] ~~FAQ nannte ein Push-Notification-Dashboard, das es nicht gibt~~ — Antwort neu geschrieben
 - [x] ~~Hero-Code zeigte `amount: 49.99`, der Server liest `revenue`~~ — zeigt jetzt `trackRevenue()`
 - [x] ~~FAQ behauptete „12 KB gzipped"~~ — gemessen 17 kB, korrigiert
