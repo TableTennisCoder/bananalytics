@@ -9,8 +9,13 @@
  * Set `NEXT_PUBLIC_DASHBOARD_URL` in `.env.local` (dev) or in Vercel project
  * settings (prod) to point at your dashboard. Falls back to the production URL.
  */
+// Stopgap: app.bananalytics.xyz resolves to the VPS but Caddy there only
+// serves BANANA_DOMAIN, which is test.bananalytics.xyz — so app. has no
+// certificate and every link to it dies on a browser warning. The demo button
+// is the primary call to action on the landing page; it cannot point at a
+// dead host. Switch back once app. is in the Caddy site address.
 const DASHBOARD_URL =
-  process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://app.bananalytics.xyz";
+  process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://test.bananalytics.xyz";
 
 /**
  * Build a fully-qualified URL on the dashboard origin.

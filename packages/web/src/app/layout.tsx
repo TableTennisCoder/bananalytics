@@ -20,8 +20,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Bananalytics",
-  description: "Self-hosted analytics for React Native apps",
+  title: "Bananalytics — Find where your React Native app loses money",
+  description: "Product analytics built around the paywall. Funnels, revenue and cohorts for React Native apps, self-hosted on a €4 server in one command.",
 };
 
 export default function RootLayout({

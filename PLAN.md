@@ -159,10 +159,15 @@ Diagramme zeigt: es gibt keinen Menschen, der bei einer komischen Zahl stutzt.
 
 ## Webseite und Infrastruktur
 
-- [ ] **`app.bananalytics.xyz` liefert kein Zertifikat.** DNS zeigt auf den VPS, aber Caddy bedient nur `BANANA_DOMAIN` (= `test.`). Damit sind **Demo- und Login-Button auf der Startseite tot**
+- [ ] **Echte Fallstudie auf die Landingpage.** Die Befund-Karte zeigt Beispielzahlen aus den synthetischen Audit-Daten, sichtbar als „Example data" markiert. Echte Hairu-Zahlen per PostHog-MCP holen, in `FINDING` in `packages/web/src/app/page.tsx` eintragen, `isExample: false` — Label und Überschrift schalten von selbst um. **Nichts Synthetisches darf als Ergebnis erscheinen**
+- [ ] **`app.bananalytics.xyz` liefert kein Zertifikat.** DNS zeigt auf den VPS, aber Caddy bedient nur `BANANA_DOMAIN` (= `test.`). *Notlösung aktiv:* `dashboard-url.ts` zeigt auf `test.`, damit Demo- und Login-Button funktionieren. Sauber: `app.` in die Caddy-Site-Adresse aufnehmen, dann den Fallback zurückdrehen
 - [ ] **`www.bananalytics.xyz`** antwortet über HTTP, hat über HTTPS kein Zertifikat
-- [ ] **Zwei nackte `https://github.com`-Links** ohne Repo — Footer und About-Seite
-- [ ] Marketing-Claim prüfen: die FAQ nennt ein Push-Notification-Dashboard, im SDK gibt es kein Push-Tracking
+- [x] ~~Nackter `https://github.com`-Link im Footer~~ — zeigt jetzt aufs Repo
+- [ ] **Nackter `https://github.com`-Link auf der About-Seite** (`about/page.tsx:86`)
+- [x] ~~FAQ nannte ein Push-Notification-Dashboard, das es nicht gibt~~ — Antwort neu geschrieben
+- [x] ~~Hero-Code zeigte `amount: 49.99`, der Server liest `revenue`~~ — zeigt jetzt `trackRevenue()`
+- [x] ~~FAQ behauptete „12 KB gzipped"~~ — gemessen 17 kB, korrigiert
+- [x] ~~Setup-Schritt 1 zeigte `docker-compose up -d`~~ — jetzt der Installer
 
 ---
 

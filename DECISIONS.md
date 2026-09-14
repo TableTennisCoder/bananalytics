@@ -9,6 +9,52 @@ gemessen, nicht geschätzt.
 
 ---
 
+## 2026-09-15 — Landingpage: Umsatz zuerst, Ownership zuletzt
+
+**Entscheidung:** Die Seite führt mit „Find where your app loses money." Privacy,
+Self-Hosting und Preis bleiben — als Trust-Zeile unter dem Button, als
+Pricing-Argument, als FAQ. Nicht mehr als Überschrift.
+
+**Warum.** Die alte Seite sprach den Privacy-Käufer an: „Own your analytics
+stack", „Your users' data never leaves", GDPR als Chip im Hero. Der Mensch, der
+das Produkt tatsächlich braucht, ist der Founder einer Paywall-App, der wissen
+will, wo Nutzer vor dem Bezahlen abspringen und ob das letzte Release es
+schlimmer gemacht hat — die Person, die Bananalytics gebaut hat, zwei Wochen
+zuvor auf PostHog. Für sie ist Datensouveränität ein Grund zu vertrauen, kein
+Grund zu kaufen. Die Reihenfolge war exakt verkehrt.
+
+Festgehalten in `.agents/product-marketing-context.md`: wer der ICP ist, wie er
+über seine App redet, welche Zahlen gemessen sind.
+
+**Features wurden zu Fragen.** Niemand sucht „Retention Cohorts", jeder sucht
+„Are they coming back?". Rausgeflogen als Feature-Karte: der 3D-Globus (hübsch,
+keine Founder-Frage) und Offline-First (SDK-Qualität, kein Ergebnis — jetzt FAQ).
+
+**Die Vergleichstabelle wurde kürzer und ehrlicher.** Mixpanel, Amplitude und
+PostHog haben alle Funnels, Revenue und Cohorts. Eine Tabelle, in der
+Bananalytics bei diesen Zeilen „gewinnt", wäre gelogen. Übrig sind die Zeilen,
+die stimmen: React-Native-first, um den Paywall-Funnel gebaut, Self-Hosting mit
+einem Kommando, Offline-Queue, Open Source, eigener Server, Festpreis.
+
+**Die Befund-Karte zeigt Beispielzahlen — und sagt es.** Die Zahlen (iOS 24,8 %,
+Android 10 %) stammen aus den *synthetischen* Audit-Daten. Sie stehen unter
+einem sichtbaren „Example data"-Label mit Fußnote; `FINDING.isExample` schaltet
+Label und Überschrift. Wenn echte Hairu-Zahlen aus PostHog da sind, werden sie
+eingetragen und der Schalter umgelegt. Nichts Synthetisches erscheint als
+Ergebnis — das ist die eine Regel, die eine Analytics-Firma nicht brechen darf.
+
+**Beim Umschreiben gefundene Fehler**, alle vorher live:
+- Hero-Code zeigte `track('purchase_complete', { amount: 49.99 })` — der Server
+  liest `revenue`. Die Startseite zeigte ein Property, das das Produkt ignoriert
+- FAQ: „12 KB gzipped" — gemessen 17 kB (dist ohne uuid)
+- FAQ: ein Push-Notification-Dashboard, das nicht existiert
+- Setup-Schritt 1: `docker-compose up -d` statt des Installers
+- Footer: `https://github.com` ohne Repo
+- Demo- und Login-Button zeigten auf `app.bananalytics.xyz` — kein Zertifikat,
+  tot. Notlösung: Fallback auf `test.`, bis `app.` in der Caddy-Adresse steht
+
+---
+
 ## 2026-09-14 — Kein Session Replay, stattdessen Taps und Zeiten
 
 **Entscheidung:** Bananalytics bekommt kein Video-basiertes Session Replay.

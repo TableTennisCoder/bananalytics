@@ -2,9 +2,32 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LOGIN_URL, DEMO_URL } from "@/lib/dashboard-url";
 import {
-  BarChart3, Globe, Lock, Zap, GitBranch, Users, Radio, Server,
-  ArrowRight, Check, X, GitFork, Shield, ChevronRight, ChevronDown,
+  BarChart3, Lock, GitBranch, Users, Server, Wallet, TrendingDown, Smartphone, Pointer,
+  ArrowRight, Check, X, GitFork, ChevronRight, ChevronDown,
 } from "lucide-react";
+
+/**
+ * The one finding this page should carry, once there is a real one.
+ *
+ * Until the founder's own numbers from Hairu are in, the card shows what a
+ * finding looks like — and says so, in a label the visitor can see. `isExample`
+ * drives that label and the section heading. Flip it to false only when every
+ * number below came out of a real dashboard; nothing synthetic ships as a case
+ * study, and these figures are synthetic (they come from seeded audit data).
+ */
+const FINDING = {
+  isExample: true,
+  app: "Example app",
+  funnel: "Paywall → Checkout → Purchase",
+  range: "Last 30 days · split by platform",
+  steps: ["Saw paywall", "Started checkout", "Purchased"],
+  segments: [
+    { name: "iOS", counts: [600, 308, 149] },
+    { name: "Android", counts: [300, 119, 30] },
+  ],
+  takeaway:
+    "Android reaches the paywall as often as iOS and buys a third as often. The drop is between checkout and purchase — that is the screen to open first.",
+};
 
 export default function LandingPage() {
   return (
@@ -54,23 +77,23 @@ export default function LandingPage() {
           <div className="mx-auto max-w-[740px] text-center">
             <div className="mb-8 flex justify-center">
               <Link href="/docs" className="group inline-flex items-center gap-2 rounded-full border border-primary/[0.15] bg-primary/[0.04] px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-all hover:border-primary/[0.3] hover:bg-primary/[0.08]">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />Built for React Native<ChevronRight className="h-3 w-3 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />Product analytics for React Native<ChevronRight className="h-3 w-3 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
             <h1 className="text-balance text-[clamp(2rem,5.5vw,3.75rem)] font-semibold leading-[1.1] tracking-[-0.025em]">
-              The analytics your React Native app{" "}<span className="text-primary">deserves</span>
+              Find where your app{" "}<span className="text-primary">loses money</span>.
             </h1>
             <p className="mx-auto mt-6 max-w-[560px] text-[16px] leading-[1.7] text-muted-foreground text-balance">
-              Self-hosted product analytics built for React Native. Same insights as Mixpanel — runs on your $4/month server. Your users&apos; data never leaves your infrastructure.
+              Product analytics for React Native apps with a paywall. See where users drop off before they pay, which release made it worse, and what each week&apos;s signups are worth — in views you&apos;ll actually open, not a query builder.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/docs#quick-start"><Button className="h-10 bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 gap-2">Deploy in 5 minutes <ArrowRight className="h-4 w-4" /></Button></Link>
-              <a href={DEMO_URL}><Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] font-medium hover:bg-white/[0.06] shadow-md">Live Demo</Button></a>
+              <a href={DEMO_URL}><Button className="h-10 bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 gap-2">See the live demo <ArrowRight className="h-4 w-4" /></Button></a>
+              <Link href="/docs#quick-start"><Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] font-medium hover:bg-white/[0.06] shadow-md">Self-host in 5 minutes</Button></Link>
             </div>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[12px] text-muted-foreground/50 font-medium">
-              <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" />GDPR compliant</span>
-              <span className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" />Your server, your data</span>
-              <span className="flex items-center gap-1.5"><GitFork className="h-3.5 w-3.5" />MIT License</span>
+              <span className="flex items-center gap-1.5"><GitFork className="h-3.5 w-3.5" />Free &amp; MIT</span>
+              <span className="flex items-center gap-1.5"><Server className="h-3.5 w-3.5" />Runs on a &euro;4 server</span>
+              <span className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" />Your data stays on your server</span>
             </div>
           </div>
           <div className="mx-auto mt-20 max-w-[620px]">
@@ -80,10 +103,10 @@ export default function LandingPage() {
                 <span className="ml-3 text-[11px] text-white/20 font-mono">App.tsx</span>
               </div>
               <pre className="p-5 font-mono text-[13px] leading-[1.9] overflow-x-auto"><code>
-                <span className="text-white/20">{"// 3 lines. That's it."}</span>{"\n"}
+                <span className="text-white/20">{"// Three lines. Revenue is a number, not a plugin."}</span>{"\n"}
                 <span className="text-primary">import</span><span className="text-white/60">{" { Bananalytics } "}</span><span className="text-primary">from</span>{" "}<span className="text-[#22C55E]">{`'@bananalytics/react-native'`}</span>{";\n\n"}
                 <span className="text-white/60">{"Bananalytics."}</span><span className="text-primary">init</span><span className="text-white/30">{"({ "}</span><span className="text-white/45">apiKey</span><span className="text-white/30">{": "}</span><span className="text-[#22C55E]">{`'rk_...'`}</span><span className="text-white/30">{", "}</span><span className="text-white/45">endpoint</span><span className="text-white/30">{": "}</span><span className="text-[#22C55E]">{`'https://analytics.yourapp.com'`}</span><span className="text-white/30">{" });"}</span>{"\n"}
-                <span className="text-white/60">{"Bananalytics."}</span><span className="text-primary">track</span><span className="text-white/30">{"("}</span><span className="text-[#22C55E]">{`'purchase_complete'`}</span><span className="text-white/30">{", { "}</span><span className="text-white/45">amount</span><span className="text-white/30">{": 49.99 });"}</span>
+                <span className="text-white/60">{"Bananalytics."}</span><span className="text-primary">trackRevenue</span><span className="text-white/30">{"("}</span><span className="text-white/60">9.99</span><span className="text-white/30">{", "}</span><span className="text-[#22C55E]">{`'EUR'`}</span><span className="text-white/30">{", { "}</span><span className="text-white/45">product</span><span className="text-white/30">{": "}</span><span className="text-[#22C55E]">{`'pro_monthly'`}</span><span className="text-white/30">{" });"}</span>
               </code></pre>
             </div>
           </div>
@@ -101,22 +124,22 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 gap-16 md:grid-cols-2 md:gap-24">
             <div>
               <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-destructive/70">The problem</p>
-              <h2 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">Analytics shouldn&apos;t cost your users&apos; trust</h2>
+              <h2 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">You know users leave. You don&apos;t know where, or what it costs you.</h2>
               <ul className="mt-8 space-y-4">
-                <PI t="Mixpanel charges $0.28/1K events — that's $2,500+/mo at scale" />
-                <PI t="Your app's behavioral data sits on someone else's servers" />
-                <PI t="Most analytics SDKs add 200KB+ to your bundle" />
-                <PI t="GDPR becomes a nightmare with third-party vendors" />
+                <PI t="Your analytics tool has forty features. You use three, and you rebuild the same paywall funnel every time." />
+                <PI t="A release ships. Conversion drops. You find out two weeks later, from the revenue chart." />
+                <PI t="You suspect Android converts worse than iOS. Proving it means an afternoon in a query builder." />
+                <PI t="The bill grows with your users. Success gets more expensive." />
               </ul>
             </div>
             <div>
               <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/70">The solution</p>
-              <h2 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">Own your analytics stack completely</h2>
+              <h2 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">See the leak. Fix it. Watch the number move.</h2>
               <ul className="mt-8 space-y-4">
-                <SI t="Purpose-built React Native SDK with auto-tracking" />
-                <SI t="Deploy on a $4/month VPS — unlimited events, forever" />
-                <SI t="Data never leaves your infrastructure" />
-                <SI t="Lightweight, offline-first, batched, zero crashes" />
+                <SI t="Funnels built around the paywall: drop-off per step, median time between steps, split by platform, version or country in one click." />
+                <SI t="Revenue is a first-class number — ARPU, paying share, and what each week's cohort is worth at day 30." />
+                <SI t="Every metric shows its change against the previous period. A release that hurts is a red arrow, not a hunch." />
+                <SI t="Runs on a €4 server with one command. Unlimited events. Your data never leaves it." />
               </ul>
             </div>
           </div>
@@ -130,14 +153,14 @@ export default function LandingPage() {
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
         <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
-          <SH l="Features" t="Enterprise analytics, indie pricing" />
+          <SH l="Features" t="Six questions. Answered." s="The views a paid app needs — and not thirty others." />
           <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <GC i={<Zap className="h-5 w-5" />} t="React Native SDK" d="Auto-captures lifecycle, screens, sessions. Expo & bare RN." />
-            <GC i={<GitBranch className="h-5 w-5" />} t="Conversion Funnels" d="See where users drop off. Multi-step funnels in seconds." />
-            <GC i={<Users className="h-5 w-5" />} t="Retention Cohorts" d="Day 1, 7, 30 retention. Color-coded heatmaps." />
-            <GC i={<Globe className="h-5 w-5" />} t="Interactive Globe" d="3D globe with live user locations. Countries & cities." />
-            <GC i={<Radio className="h-5 w-5" />} t="Live Dashboard" d="Real-time events, active users. Updates every 5 seconds." />
-            <GC i={<Lock className="h-5 w-5" />} t="Offline-First" d="Queue offline. Auto-sync. Backoff with jitter. Zero crashes." />
+            <GC i={<GitBranch className="h-5 w-5" />} t="Where do they bail?" d="Funnels with drop-off per step and the median time between them. Filter every step to a segment." />
+            <GC i={<Wallet className="h-5 w-5" />} t="What is a user worth?" d="ARPU, paying share, average order — and each week's cohort tracked to day 30, 60 and 90." />
+            <GC i={<TrendingDown className="h-5 w-5" />} t="Did the release hurt?" d="Every number against the previous period. Break anything down by app version." />
+            <GC i={<Smartphone className="h-5 w-5" />} t="Who converts, who doesn't?" d="Split any view by platform, country, device, OS version or your own properties." />
+            <GC i={<Users className="h-5 w-5" />} t="Are they coming back?" d="Retention cohorts, DAU/WAU/MAU, stickiness. People, not event volume." />
+            <GC i={<Pointer className="h-5 w-5" />} t="Where do they tap?" d="Taps and time-on-screen as events. Rage taps and dead buttons, without recording a single screen." />
           </div>
         </div>
       </section>
@@ -149,11 +172,11 @@ export default function LandingPage() {
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
         <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
-          <SH l="Setup" t="Zero to tracking in 5 minutes" s="No account. No credit card. No sales call." />
+          <SH l="Setup" t="Zero to your first funnel in 5 minutes" s="No account. No credit card. No sales call." />
           <div className="mt-16 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <SC n="1" t="Deploy" d="Docker boots the server + Postgres." c="docker-compose up -d" />
+            <SC n="1" t="Deploy" d="One command on any €4 server. Docker, Postgres, HTTPS, backups." c="curl -fsSL bananalytics.xyz/install.sh | sudo bash" />
             <SC n="2" t="Install" d="Add the SDK. Expo & bare RN." c="npm i @bananalytics/react-native" />
-            <SC n="3" t="Ship" d="Track events. See them live." c="Bananalytics.track('signup')" />
+            <SC n="3" t="Ship" d="Track a purchase. Watch the funnel fill in." c="Bananalytics.trackRevenue(9.99, 'EUR')" />
           </div>
         </div>
       </section>
@@ -165,7 +188,7 @@ export default function LandingPage() {
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
         <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
-          <SH l="Comparison" t="How Bananalytics stacks up" s="Same features. Fraction of the cost." />
+          <SH l="Comparison" t="How Bananalytics stacks up" s="The rows that matter when you are the whole team." />
           <div className="mt-16 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015]">
             <table className="w-full text-[13px]">
               <thead><tr className="border-b border-white/[0.05]">
@@ -177,18 +200,13 @@ export default function LandingPage() {
                 <th className="px-5 py-4 text-center font-medium text-muted-foreground/50 hidden lg:table-cell">GA4</th>
               </tr></thead>
               <tbody className="divide-y divide-white/[0.03]">
-                <CR f="Self-hosted" r={true} m={false} a={false} p={true} g={false} />
-                <CR f="Open source" r={true} m={false} a={false} p={true} g={false} />
                 <CR f="Built for React Native" r={true} m={false} a={false} p={false} g={false} />
-                <CR f="Event tracking" r={true} m={true} a={true} p={true} g={true} />
-                <CR f="Funnels" r={true} m={true} a={true} p={true} g={true} />
-                <CR f="Retention" r={true} m={true} a={true} p={true} g={false} />
-                <CR f="Real-time" r={true} m={true} a={false} p={true} g={true} />
+                <CR f="Built around the paywall funnel" r={true} m={false} a={false} p={false} g={false} />
+                <CR f="Self-hosted with one command" r={true} m={false} a={false} p={false} g={false} />
                 <CR f="Offline queue" r={true} m={false} a={true} p={false} g={false} />
-                <CR f="3D Globe" r={true} m={false} a={false} p={false} g={false} />
-                <CR f="Cookieless" r={true} m={false} a={false} p={true} g={false} />
+                <CR f="Open source" r={true} m={false} a={false} p={true} g={false} />
                 <CR f="Your server only" r={true} m={false} a={false} p="self" g={false} />
-                <CR f="Unlimited events" r={true} m={false} a={false} p={false} g={true} />
+                <CR f="Unlimited events, fixed price" r={true} m={false} a={false} p={false} g={true} />
                 <tr className="bg-white/[0.02]"><td className="px-5 py-3.5 font-semibold">Price at 10M events</td><td className="px-5 py-3.5 text-center font-bold text-primary">$4/mo</td><td className="px-5 py-3.5 text-center text-muted-foreground/50">~$2,520/mo</td><td className="px-5 py-3.5 text-center text-muted-foreground/50">Custom</td><td className="px-5 py-3.5 text-center text-muted-foreground/50">~$450</td><td className="px-5 py-3.5 text-center text-muted-foreground/50 hidden lg:table-cell">Free*</td></tr>
               </tbody>
             </table>
@@ -206,8 +224,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
           <SH
             l="Performance"
-            t="Runs on a single $5 server"
-            s="Backend + Postgres + your Next.js dashboard. All on one box."
+            t="Grows with you. The bill doesn't."
+            s="Backend, Postgres and the dashboard on one €4 box. Measured, not estimated."
           />
 
           {/* Hero stat cards */}
@@ -273,9 +291,12 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-px bg-white/[0.04]" />
           <div className="absolute right-0 top-0 bottom-0 w-px bg-white/[0.04]" />
         </div>
-        <div className="mx-auto max-w-[720px] px-4 py-14 sm:py-20 text-center">
-          <blockquote className="text-[22px] font-medium leading-relaxed tracking-tight text-balance sm:text-[28px]">&ldquo;Your React Native app collects sensitive behavioral data. It should stay on <span className="text-primary">your</span> server.&rdquo;</blockquote>
-          <p className="mt-6 text-[14px] text-muted-foreground/50">Your users trust you. Bananalytics keeps that trust.</p>
+        <div className="mx-auto max-w-[1120px] px-4 lg:px-12 py-14 sm:py-20">
+          <SH
+            l={FINDING.isExample ? "What a finding looks like" : "From the founder's own app"}
+            t="You don't need more charts. You need to know which screen is costing you subscribers."
+          />
+          <Finding />
         </div>
       </section>
 
@@ -290,7 +311,7 @@ export default function LandingPage() {
           <div className="mx-auto mt-16 grid max-w-[840px] grid-cols-1 gap-5 md:grid-cols-2">
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 transition-colors hover:border-white/[0.1]">
               <div className="flex items-center gap-2 mb-1"><Server className="h-4 w-4 text-muted-foreground/50" /><h3 className="text-[15px] font-semibold">Self-Hosted</h3></div>
-              <p className="text-[12px] text-muted-foreground/50 mb-5">Your server. Your data. Your rules.</p>
+              <p className="text-[12px] text-muted-foreground/50 mb-5">Free at any scale. One command to install.</p>
               <p className="text-[36px] font-bold tracking-tight leading-none">$0</p>
               <p className="text-[12px] text-muted-foreground/50 mt-1 mb-7">+ ~$4/mo for a VPS</p>
               <ul className="space-y-2.5 mb-7"><PF t="Unlimited events" /><PF t="All features" /><PF t="Full source (MIT)" /><PF t="Deploy in 5 min" /><PF t="Community support" /></ul>
@@ -319,32 +340,40 @@ export default function LandingPage() {
           <SH l="FAQ" t="Questions, answered" s="Everything you need to know before you ship." />
           <div className="mx-auto mt-12 max-w-[760px] space-y-3">
             <FAQ
-              q="How long does setup actually take?"
-              a="If you have Docker installed, the backend boots in about a minute (one docker-compose up -d command). The React Native SDK is ~3 lines of code: install the package, call init() with your API key, start tracking. End-to-end, you'll be sending real events in under 10 minutes — and that includes signing up and creating a project."
+              q="I'm already on PostHog or Mixpanel. Why switch?"
+              a="Because you have forty features and use three, and you rebuild the same paywall funnel every time you open it. Here that funnel is the home screen, with revenue on it and the change since last period next to every number. Fewer views, each one built around a question a paid app actually asks. If you need session replay, feature flags or a SQL console, stay where you are — that is not what this is."
             />
             <FAQ
-              q="Does it work with Expo, or only bare React Native?"
-              a="Both. Expo (managed workflow + EAS), Expo Dev Client, and bare React Native are all first-class. The only native module the SDK pulls in is AsyncStorage for offline event queuing, which works everywhere. No native code to link, no Xcode/Android Studio dance."
+              q="What does it tell me that RevenueCat's dashboard can't?"
+              a="RevenueCat knows what was paid. It does not know which screen lost the people who did not pay. Bananalytics sees the whole path — paywall viewed, checkout started, purchase completed — split by platform, app version and country, so the drop-off has a place and a segment, not just a total."
+            />
+            <FAQ
+              q="Do I have to re-instrument my app?"
+              a="No. The SDK uses the same track / identify / screen calls you already have, so switching call sites is mostly a find-and-replace. The practical path is to dual-track for a week — send to both tools — then cut the old one once the numbers agree. Historical import is not there yet."
             />
             <FAQ
               q="Will it slow down my app or bloat my bundle?"
-              a="The SDK is ~12KB gzipped (vs. Mixpanel's ~200KB+). Events are batched and sent on background flush intervals (default every 30s, or when 20 events queue up), so there's no blocking work on the main thread. Network calls happen off your render path. We benchmark FPS impact at <0.1ms per track() call."
+              a="The SDK is 17 kB gzipped. Events are batched and sent in the background (every 30 seconds, or when 20 queue up), off your render path. Tap recording is off by default because it roughly doubles event volume; when you turn it on, a touch is recorded 150 ms later, never in the touch handler itself."
             />
             <FAQ
-              q="Is it really GDPR/CCPA compliant out of the box?"
-              a="Yes — by design. All event data lives on your infrastructure, so you're the data controller and processor. The SDK has built-in opt-in/opt-out methods (Bananalytics.optOut()) and never collects PII automatically. No cookies, no third-party trackers, no IP storage by default. You still need a privacy policy and consent flow for your users, but there's no data-processing agreement to sign with us — because there's no us in the data path."
+              q="How long does setup actually take?"
+              a="One command on a fresh server installs Docker, asks for your domain, obtains a certificate, offers to schedule nightly backups and starts everything — about five minutes. The SDK is three lines: install, init() with your key, track. You will see your first event before the coffee is cold. Prefer to run it on your laptop first? docker compose up works too."
+            />
+            <FAQ
+              q="Does it work with Expo, or only bare React Native?"
+              a="Both. Expo managed, EAS, Dev Client and bare React Native. The SDK is pure TypeScript — the only native dependency is AsyncStorage for the offline queue, which is already in most apps. No config plugin, no pod install, and Expo Go keeps working."
             />
             <FAQ
               q="What happens to events if my server goes down?"
-              a="The SDK persists events locally via AsyncStorage and retries with exponential backoff + jitter when the network or server is unavailable. Events queue up to a configurable maxQueueSize (default 1000) and flush automatically when connectivity returns. So a 2-hour Postgres outage means zero data loss — your users keep tracking, events sync once you're back."
+              a="They wait. The SDK keeps events on the device and retries with backoff once the server is back, in order, in batches the server accepts. A two-hour outage costs you nothing but a two-hour delay on the dashboard."
             />
             <FAQ
-              q="Can I migrate my existing Mixpanel or Amplitude data?"
-              a="Not automatically yet — historical data import is on the roadmap. For now, the practical approach is to dual-track for a few weeks (send events to both Mixpanel and Bananalytics simultaneously), then cut Mixpanel once you're confident. The SDK's API is intentionally similar to Mixpanel's (track, identify, screen) so migrating call sites is mostly a find-and-replace."
+              q="Is it GDPR compliant?"
+              a="Your data never leaves your server, so there is no processor to sign an agreement with — there is no us in the data path. No cookies, no third-party requests, opt-out built into the SDK, and tap recording captures coordinates, never screens. You still need your own privacy policy and consent flow; we cannot write those for you."
             />
             <FAQ
-              q="Why not just use PostHog (also open source)?"
-              a="PostHog is great, but it's built for web-first analytics with React Native as an afterthought. Bananalytics is React Native-first: native session handling, app lifecycle tracking, offline queuing, and a dashboard built around mobile-specific events (screens, app_opened, push notifications). Plus, PostHog self-hosted requires significant DevOps — Bananalytics runs on a single $4/month VPS with one Docker command."
+              q="Why not just self-host PostHog?"
+              a="You can, and it is a good product. It is also a web-first platform with a mobile SDK on the side, and self-hosting it means running ClickHouse, Kafka and a dozen services. Bananalytics is React Native first — lifecycle, sessions, offline queue, taps — and it runs on one €4 box with one command. If you want the platform, take PostHog. If you want the paywall funnel by Tuesday, take this."
             />
             <FAQ
               q="When will Bananalytics Cloud launch?"
@@ -362,11 +391,11 @@ export default function LandingPage() {
         </div>
         <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[500px] rounded-full bg-primary/[0.04] blur-[100px]" />
         <div className="mx-auto max-w-[600px] px-4 py-14 sm:py-20 text-center">
-          <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-balance sm:text-[36px]">Ready to own your analytics?</h2>
-          <p className="mx-auto mt-4 max-w-[400px] text-[15px] text-muted-foreground/60">Deploy in 5 minutes. No account, no credit card, no lock-in.</p>
+          <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-balance sm:text-[36px]">Find your first leak this week.</h2>
+          <p className="mx-auto mt-4 max-w-[400px] text-[15px] text-muted-foreground/60">Self-host in 5 minutes. No account, no card, no lock-in.</p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/docs#quick-start"><Button className="h-10 bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 gap-2">Deploy Now <ArrowRight className="h-4 w-4" /></Button></Link>
-            <Link href="/docs"><Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] hover:bg-white/[0.06]">Read the Docs</Button></Link>
+            <Link href="/docs#quick-start"><Button className="h-10 bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 gap-2">Self-host now <ArrowRight className="h-4 w-4" /></Button></Link>
+            <a href={DEMO_URL}><Button variant="outline" className="h-10 border-white/[0.08] bg-white/[0.03] px-6 text-[14px] hover:bg-white/[0.06]">See the live demo</Button></a>
           </div>
         </div>
       </section>
@@ -379,7 +408,7 @@ export default function LandingPage() {
         </div>
         <div className="mx-auto flex max-w-[1120px] flex-col items-center justify-between gap-6 px-4 lg:px-12 py-8 sm:flex-row">
           <div className="flex items-center gap-2"><span className="text-sm">&#x1F34C;</span><span className="text-[12px] font-bold text-muted-foreground/60" style={{ fontFamily: 'var(--font-brand)' }}>Bananalytics</span></div>
-          <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/#faq" className="transition-colors hover:text-foreground">FAQ</Link><a href={LOGIN_URL} className="transition-colors hover:text-foreground">Dashboard</a><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com" className="transition-colors hover:text-foreground">GitHub</a></div>
+          <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/#faq" className="transition-colors hover:text-foreground">FAQ</Link><a href={LOGIN_URL} className="transition-colors hover:text-foreground">Dashboard</a><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com/TableTennisCoder/bananalytics" className="transition-colors hover:text-foreground">GitHub</a></div>
           <p className="text-[11px] text-muted-foreground/25">MIT License</p>
         </div>
       </footer>
@@ -403,6 +432,76 @@ function Stat({ value, label, sub }: { value: string; label: string; sub: string
       <p className="text-[40px] font-bold tracking-tight leading-none text-primary sm:text-[44px]">{value}</p>
       <p className="mt-3 text-[14px] font-semibold">{label}</p>
       <p className="mt-1 text-[12px] text-muted-foreground/50">{sub}</p>
+    </div>
+  );
+}
+
+/**
+ * A segmented funnel, the way the dashboard shows one — the product's core view
+ * rendered in the page's own style so a visitor sees the answer, not a screenshot.
+ *
+ * Reads FINDING. While `isExample` is true the card carries a visible "Example
+ * data" label; the numbers are illustrative and must not be read as a result.
+ */
+function Finding() {
+  const first = Math.max(...FINDING.segments.map((s) => s.counts[0]));
+  const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 1000) / 10 : 0);
+
+  return (
+    <div className="mx-auto mt-12 max-w-[760px]">
+      <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.015]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.05] px-5 py-4">
+          <div>
+            <p className="text-[14px] font-semibold">{FINDING.funnel}</p>
+            <p className="mt-0.5 text-[12px] text-muted-foreground/50">{FINDING.range}</p>
+          </div>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
+              FINDING.isExample
+                ? "border border-white/[0.08] text-muted-foreground/60"
+                : "bg-primary/10 text-primary"
+            }`}
+          >
+            {FINDING.isExample ? "Example data" : `${FINDING.app} · live data`}
+          </span>
+        </div>
+
+        <div className="divide-y divide-white/[0.03]">
+          {FINDING.segments.map((seg) => (
+            <div key={seg.name} className="px-5 py-4">
+              <div className="mb-3 flex items-baseline justify-between">
+                <span className="text-[13px] font-semibold">{seg.name}</span>
+                <span className="text-[12px] text-muted-foreground/50">
+                  {pct(seg.counts[seg.counts.length - 1], seg.counts[0])}% reach purchase
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {FINDING.steps.map((step, i) => (
+                  <div key={step}>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/[0.04]">
+                      <div
+                        className={`h-full rounded-full ${i === 0 ? "bg-primary/60" : "bg-primary"}`}
+                        style={{ width: `${(seg.counts[i] / first) * 100}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-[12px] font-medium tabular-nums">{seg.counts[i].toLocaleString("en-US")}</p>
+                    <p className="text-[11px] text-muted-foreground/50">{step}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="border-t border-white/[0.05] px-5 py-4 text-[13px] leading-relaxed text-muted-foreground/80">
+          {FINDING.takeaway}
+        </p>
+      </div>
+      {FINDING.isExample && (
+        <p className="mt-3 text-center text-[11px] text-muted-foreground/30">
+          Illustrative numbers. This is the view; a real finding from the founder&apos;s own app is coming.
+        </p>
+      )}
     </div>
   );
 }
