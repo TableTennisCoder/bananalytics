@@ -15,15 +15,54 @@ Ziel.
 
 ## Hauptstrang — in dieser Reihenfolge
 
-Die Reihenfolge ist nicht beliebig: jeder Punkt macht den nächsten billiger.
+Die Reihenfolge folgt der Vorlaufzeit, nicht der Wichtigkeit. Autocapture steht
+vorne, weil es eine SDK-Änderung ist: npm-Release, App-Release, App-Store-Review,
+dann aktualisieren die Nutzer über Wochen. Von „gebaut" bis „genug Daten zum
+Auswerten" vergehen drei bis vier Wochen. SQL und MCP sind Backend-Arbeit und in
+dem Moment live, in dem sie deployt sind — die können währenddessen entstehen.
 
-### 1. Lesender SQL-Zugang
+Dazu kommt: das SDK geht gerade ohnehin in Hairu. Zweimal integrieren kostet
+einen Release-Zyklus umsonst.
+
+### 1. Autocapture: Taps und Zeiten
+
+Steht vorne wegen der Vorlaufzeit, siehe oben. Das Rohmaterial, das Session
+Replay liefern würde — ohne Video, ohne native Module, ohne Gesichter.
+
+Die Form muss beim ersten Mal sitzen: rückwirkend erfassen geht nicht.
+
+- [ ] `$tap` mit `screen, x, y, screen_w, screen_h`
+- [ ] `$screen_leave` mit `screen, dwell_ms`
+- [ ] Globaler Touch-Beobachter am Wurzel-View über `onStartShouldSetResponderCapture` — liest jeden Touch mit, ohne ihn abzufangen
+- [ ] `trackTaps` schaltet Screen-Tracking mit ein: eine Koordinate ohne Screen ist wertlos
+- [ ] Ende-zu-Ende gegen den echten Server prüfen, bevor es in Hairu geht
+
+Festgelegt:
+
+- **Roh statt normalisiert.** `x/y` in dp plus die Bildschirmmaße als eigene Felder. Zur Abfragezeit normalisieren, dann fällt Querformat automatisch richtig raus — andersherum ginge es nicht.
+- **Sampling pro Session, nicht pro Event.** Beim Sessionstart einmal würfeln. Ein halb erfasster Verlauf würde die Auswertung *aktiv falsch* machen: ein „toter Tap" ist ein Tap ohne Folge-Event — wenn das Folge-Event nur wegsampelt wurde, meldet das Tool einen kaputten Knopf, der funktioniert.
+- **Standardmäßig aus** (`trackTaps: false`). Taps verdoppeln das Eventvolumen, bei Hairu-Größe ~5 Mio Events und ~5 GB im Monat. Das ungefragt auf fremde Server zu kippen passt nicht zu diesem Produkt.
+- **Kein `target`-Komponentenname.** Wäre wertvoll, kann aber Inhalte durchsickern lassen. Der Screen-Bauplan löst dasselbe später sauber.
+- **Kein `scroll_depth` in v1.** Geht nicht global, dafür müsste der Nutzer seine ScrollViews umbauen.
+
+Offenes Risiko: **Modals rendern in einer eigenen Host-View** — Taps darin
+erreichen die App-Wurzel möglicherweise nicht. Nur auf einem echten Gerät zu
+klären, passt also zum ohnehin anstehenden Gerätetest.
+
+Abgeleitet wird erst, wenn Punkt 2 steht (Fensterfunktionen brauchen SQL):
+
+- [ ] Rage-Taps — 3 Taps binnen 2 s im Umkreis von 40 px
+- [ ] Tote Taps — Tap ohne Folge-Event binnen 1 s. Der kaputte Knopf, der nichts loggt
+- [ ] Heatmap pro Screen
+- [ ] Später: Screen-Bauplan einmal pro Screen und App-Version über `onLayout` — dann weiß die Auswertung nicht nur *wo* getippt wurde, sondern *worauf*
+
+### 2. Lesender SQL-Zugang
 
 Der Hebel. Ohne ihn ist jede Frage, die nicht schon als Endpoint existiert, gar
 nicht stellbar — zwei von drei Testabfragen aus dem Audit sind daran gescheitert,
 obwohl die Daten da lagen. Damit werden Quantile, Set-Analysen,
-Events-pro-Person, die Geo-Geräte-Matrix und der halbe Alarm-Bereich zu
-Abfragen statt zu Features.
+Events-pro-Person, die Geo-Geräte-Matrix, die Tap-Auswertung aus Punkt 1 und der
+halbe Alarm-Bereich zu Abfragen statt zu Features.
 
 - [ ] Eigene Datenbankrolle, nur `SELECT`, nur auf `events_resolved` und die Rollup-Tabellen
 - [ ] Row-Level Security mit der Projekt-ID als Session-Variable → beliebiges SQL ist automatisch auf ein Projekt beschränkt
@@ -34,7 +73,7 @@ Abfragen statt zu Features.
 *Nicht* als Textfeld, das SQL durchreicht. Die Abschottung ist der Punkt, an dem
 das steht oder fällt — und sie wird für Managed Hosting sowieso gebraucht.
 
-### 2. MCP-Server
+### 3. MCP-Server
 
 - [ ] Lokaler stdio-Prozess (`npx @bananalytics/mcp`), kein gehosteter Worker
 - [ ] Konfiguration: `BANANALYTICS_HOST` + `BANANALYTICS_SECRET_KEY`
@@ -46,19 +85,6 @@ das steht oder fällt — und sie wird für Managed Hosting sowieso gebraucht.
 
 Höchstens sechs bis acht Tools. Wenn die Liste über zehn wächst, auf ein
 einzelnes `exec`-Tool mit `learn`/`search`/`info`/`call` umstellen.
-
-### 3. Autocapture: Taps und Zeiten
-
-Das Rohmaterial, das Session Replay liefern würde — ohne Video, ohne native
-Module, ohne Gesichter.
-
-- [ ] `$tap` mit `screen, x, y, screen_w, screen_h` — globaler Touch-Beobachter am Wurzel-View über `onStartShouldSetResponderCapture`, der Touches mitliest ohne sie abzufangen
-- [ ] `$screen_leave` mit `screen, dwell_ms, scroll_depth`
-- [ ] Sampling-Schalter (Taps verdoppeln das Eventvolumen, ~5 GB/Monat bei Hairu-Größe)
-- [ ] Abgeleitet: Rage-Taps (3 Taps binnen 2 s im Umkreis von 40 px)
-- [ ] Abgeleitet: tote Taps (Tap ohne Folge-Event binnen 1 s) — der kaputte Knopf, der nichts loggt
-- [ ] Abgeleitet: Heatmap pro Screen
-- [ ] Später: Screen-Bauplan einmal pro Screen und App-Version über `onLayout` — dann weiß die Auswertung nicht nur *wo* getippt wurde, sondern *worauf*
 
 ### 4. Gespeicherte Objekte
 
@@ -78,7 +104,7 @@ Das eigentliche Produkt: nicht „hier ist ein Breakdown-Picker", sondern
 *„Android verliert 14,8 Prozentpunkte zwischen Paywall und Kauf — das sind
 ~4.400 $/Monat."*
 
-- [ ] **Zuerst als Prompt testen**, nicht als Feature bauen. Mit Punkt 1+2 kann Claude die Schleife von Hand fahren: über `BuiltinDimensions()` iterieren, `GetSegmentedFunnel` pro Dimension, gegen den Gesamt-Funnel vergleichen, nach verlorenem Umsatz sortieren
+- [ ] **Zuerst als Prompt testen**, nicht als Feature bauen. Mit Punkt 2+3 kann Claude die Schleife von Hand fahren: über `BuiltinDimensions()` iterieren, `GetSegmentedFunnel` pro Dimension, gegen den Gesamt-Funnel vergleichen, nach verlorenem Umsatz sortieren
 - [ ] Erst wenn die Befunde taugen: Nachtjob mit eigener Ergebnistabelle (~120 Funnel-Queries pro Lauf, kein Seitenaufruf)
 - [ ] Mindest-Segmentgrößen und Konfidenz von Anfang an — drei Wochen Zufallsbefunde und niemand glaubt dem Tool mehr
 
@@ -86,7 +112,7 @@ Das eigentliche Produkt: nicht „hier ist ein Breakdown-Picker", sondern
 
 ## Query-Engine — Lücken aus dem Audit
 
-Teile davon erledigen sich mit Punkt 1. Diese hier nicht:
+Teile davon erledigen sich mit Punkt 2. Diese hier nicht:
 
 - [ ] **Funnel-Schritte über Property-Werte** — heute ist ein Schritt ein Event-Name. Der Onboarding-Funnel über `onboarding_step_completed` mit `step_name` ist damit nicht baubar. Blockiert eine der sechs Analysen, die real gefahren wurden
 - [ ] **Filter pro Schritt** statt global für alle Schritte
@@ -155,6 +181,6 @@ Damit die Entscheidung nicht in drei Monaten neu diskutiert wird:
 
 - **Session Replay mit Video.** Braucht native Module in Swift und Kotlin, schließt Expo Go aus, braucht Object Storage und einen eigenen Player — 2–4 Monate. Und bei einer Hairstyle-App zeichnet es Gesichter auf. „Kein Session Replay" ist für ein Privacy-Tool eine Position, kein Mangel
 - **Person-Properties** (zum Event-Zeitpunkt vs. aktuell) — Analysten-Feature
-- **Set-Analysen als eigener Endpoint** — erledigt Punkt 1 nebenbei
+- **Set-Analysen als eigener Endpoint** — erledigt Punkt 2 nebenbei
 - **Team-Invitations** — blockiert keinen einzelnen Self-Hoster
 - **Abgeleitete Dimensionen als UI** — Land→Tier wird für den Auto-Scan hartverdrahtet
