@@ -62,6 +62,8 @@ interface BananalyticsConfig {
   debug?: boolean;          // Enable console logging (default: false)
   trackAppLifecycle?: boolean; // Auto-track app open + foreground/background (default: true)
   trackScreens?: boolean;   // Auto-track screen views (default: false)
+  trackTaps?: boolean;      // Record where people tap (default: false)
+  tapSampleRate?: number;   // Share of sessions that record taps (default: 1)
   sessionTimeout?: number;  // Session timeout in ms (default: 1800000)
 }
 ```
@@ -83,6 +85,38 @@ interface BananalyticsConfig {
 Any event can carry revenue — adding `revenue` and `currency` to the properties
 of your own purchase event does the same thing as `trackRevenue`.
 
+## Recording taps
+
+Off by default: taps roughly double an app's event volume. Turning them on also
+turns on screen tracking, because a coordinate without a screen name says
+nothing.
+
+```tsx
+Bananalytics.init({ apiKey: 'rk_...', endpoint: '...', trackTaps: true });
+```
+
+```tsx
+// app/_layout.tsx — wrap the app so touches can be seen
+import { BananalyticsRoot } from '@bananalytics/react-native';
+
+<BananalyticsRoot>
+  <Stack />
+</BananalyticsRoot>
+```
+
+Each touch becomes a `$tap` carrying `screen`, `x`, `y`, `screen_w` and
+`screen_h` — five numbers, nothing about what was on the screen. Coordinates are
+in density-independent pixels and the screen size travels with them, so the same
+tap is comparable across devices and survives rotation.
+
+A touch that turns into a drag is not recorded. A scroll and a tap look
+identical when a finger lands, and a recorded scroll would look exactly like a
+tap that led nowhere — the one signal this is for.
+
+`tapSampleRate` is decided **once per session**, not per touch. A half-recorded
+session is worse than none: a tap with no event after it means a broken button,
+so dropping the follow-up event would report one that works perfectly.
+
 ## Automatically captured
 
 With `trackAppLifecycle` on (the default):
@@ -93,6 +127,8 @@ With `trackAppLifecycle` on (the default):
 | `$app_foreground` | The app returns from the background |
 | `$app_background` | The app goes to the background. The queue is persisted and flushed here |
 | `$session_start` / `$session_end` | A session begins or times out (`sessionTimeout`, default 30 min) |
+| `$screen_leave` | A screen is left, with `dwell_ms` — how long it was actually in front of someone. Backgrounding the app ends the count |
+| `$tap` | Only with `trackTaps`, see above |
 
 ## Features
 

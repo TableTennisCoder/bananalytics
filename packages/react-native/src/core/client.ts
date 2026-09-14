@@ -11,6 +11,7 @@ import { EventBuilder } from '../tracking/event-builder';
 import { UserIdentity } from '../tracking/user-identity';
 import { LifecycleTracker } from '../tracking/lifecycle-tracker';
 import { ScreenTracker } from '../tracking/screen-tracker';
+import { TapTracker } from '../tracking/tap-tracker';
 import { SessionManager } from '../context/session';
 import { ConsentManager } from '../privacy/consent';
 import { getDeviceContext } from '../context/device';
@@ -32,6 +33,9 @@ export class BananalyticsClient {
   private sessionManager: SessionManager;
   private lifecycleTracker: LifecycleTracker;
   private screenTracker: ScreenTracker;
+  private tapTracker: TapTracker;
+  /** Screen the person is on, and when they arrived, for $screen_leave. */
+  private currentScreen: { name: string; enteredAt: number | null } | null = null;
   private consent: ConsentManager;
   private initialized = false;
   private deviceContext = getDeviceContext();
@@ -54,10 +58,18 @@ export class BananalyticsClient {
     );
 
     this.identity = new UserIdentity(this.persister, this.logger);
-    this.sessionManager = new SessionManager(this.config.sessionTimeout, this.persister, this.logger);
+    this.sessionManager = new SessionManager(
+      this.config.sessionTimeout,
+      this.persister,
+      this.logger,
+      // Rolled once per session, not once per tap. A trail with holes in it
+      // reads as a dead tap that never happened.
+      () => this.config.trackTaps && Math.random() < this.config.tapSampleRate,
+    );
     this.consent = new ConsentManager(this.persister, this.logger);
     this.lifecycleTracker = new LifecycleTracker(this.logger);
     this.screenTracker = new ScreenTracker(this.logger);
+    this.tapTracker = new TapTracker(this.logger);
 
     this.eventBuilder = new EventBuilder(
       {
@@ -118,7 +130,16 @@ export class BananalyticsClient {
       // Start auto-tracking
       if (this.config.trackAppLifecycle) {
         this.lifecycleTracker.start(
-          (eventName, props) => this.track(eventName, props),
+          (eventName, props) => {
+            // Time on a screen means time it was actually in front of someone.
+            // A phone in a pocket overnight would otherwise report a fourteen
+            // hour dwell on whatever screen happened to be open.
+            if (eventName === '$app_background') this.leaveCurrentScreen();
+            this.track(eventName, props);
+            if (eventName === '$app_foreground' && this.currentScreen) {
+              this.currentScreen.enteredAt = Date.now();
+            }
+          },
           () => { this.flush().catch(() => {}); },
           () => { this.persistQueue(); },
         );
@@ -184,11 +205,64 @@ export class BananalyticsClient {
 
     try {
       this.sessionManager.getSession();
+      this.leaveCurrentScreen();
+      this.currentScreen = { name: screenName, enteredAt: Date.now() };
       const payload = this.eventBuilder.screen(screenName, properties);
       this.enqueueEvent(payload);
     } catch (err) {
       this.logger.error('Failed to track screen', err);
     }
+  }
+
+  /**
+   * Records a touch. Called by BananalyticsRoot, not by app code.
+   *
+   * @internal
+   */
+  recordTouchStart(pageX: number, pageY: number): void {
+    if (!this.config.trackTaps) return;
+    if (this.consent.isOptedOut()) return;
+    if (!this.sessionManager.capturesTaps()) return;
+
+    // A coordinate is meaningless without the screen it was on. Rather than
+    // dropping the touch silently, it is recorded as unknown — an app that
+    // asked for taps but never wired screen tracking should be able to see
+    // that in its own data instead of wondering where the taps went.
+    const screen = this.currentScreen?.name ?? '(unknown)';
+
+    this.tapTracker.onTouchStart(pageX, pageY, screen, (tap) => {
+      this.track('$tap', { ...tap });
+    });
+  }
+
+  /**
+   * Records that a touch turned into a drag, so it is not counted as a tap.
+   *
+   * @internal
+   */
+  recordTouchMove(): void {
+    if (!this.config.trackTaps) return;
+    this.tapTracker.onTouchMove();
+  }
+
+  /**
+   * Emits $screen_leave for the screen being left, with how long it was up.
+   *
+   * Sent rather than derived from the gaps between $screen events, because the
+   * last screen of a session has no successor to measure against — and that is
+   * often the screen where the person gave up, which makes it the one worth
+   * measuring most.
+   */
+  private leaveCurrentScreen(): void {
+    const current = this.currentScreen;
+    if (!current || current.enteredAt === null) return;
+
+    this.enqueueEvent(
+      this.eventBuilder.track('$screen_leave', {
+        screen: current.name,
+        dwell_ms: Date.now() - current.enteredAt,
+      }),
+    );
   }
 
   /**
@@ -322,6 +396,8 @@ export class BananalyticsClient {
   async shutdown(): Promise<void> {
     this.batcher.stop();
     this.lifecycleTracker.stop();
+    this.tapTracker.stop();
+    this.leaveCurrentScreen();
     await this.flush();
     this.persistQueue();
   }

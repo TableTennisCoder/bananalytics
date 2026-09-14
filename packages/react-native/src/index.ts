@@ -3,6 +3,7 @@ export { BananalyticsClient } from './core/client';
 export { BananalyticsProvider } from './hooks/BananalyticsProvider';
 export { useBananalytics } from './hooks/useBananalytics';
 export { useTrackScreen } from './hooks/useTrackScreen';
+export { BananalyticsRoot } from './hooks/BananalyticsRoot';
 
 // Types
 export type { BananalyticsConfig } from './types/config';
@@ -124,5 +125,24 @@ export const Bananalytics = {
   /** Manually flushes all queued events. */
   async flush(): Promise<void> {
     await instance?.flush();
+  },
+
+  /**
+   * Called by BananalyticsRoot when a touch lands. Not part of the public API —
+   * wrap your app in BananalyticsRoot instead of calling this.
+   *
+   * @internal
+   */
+  __recordTouchStart(pageX: number, pageY: number): void {
+    instance?.recordTouchStart(pageX, pageY);
+  },
+
+  /**
+   * Called by BananalyticsRoot when a touch turns into a drag.
+   *
+   * @internal
+   */
+  __recordTouchMove(): void {
+    instance?.recordTouchMove();
   },
 };

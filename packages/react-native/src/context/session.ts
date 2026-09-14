@@ -8,6 +8,16 @@ export interface SessionState {
   id: string;
   startedAt: string;
   lastActivity: string;
+  /**
+   * Whether this session records taps. Decided once, when the session starts,
+   * and carried for its whole length — sampling individual taps would leave
+   * gaps in a trail that is read as a sequence.
+   *
+   * Absent on a session restored from an older SDK version. Treated as false
+   * there: recording from the middle of a session produces exactly the partial
+   * trail this is meant to avoid.
+   */
+  capturesTaps?: boolean;
 }
 
 /**
@@ -21,11 +31,28 @@ export class SessionManager {
   private readonly persister: Persister;
   private onSessionStart: ((session: SessionState) => void) | null = null;
   private onSessionEnd: ((session: SessionState) => void) | null = null;
+  private readonly decideTapCapture: () => boolean;
 
-  constructor(timeout: number, persister: Persister, logger: Logger) {
+  /**
+   * @param decideTapCapture - Called once per new session to settle whether it
+   *   records taps. Injected rather than computed here so the sampling policy
+   *   stays with the client and this class stays about sessions.
+   */
+  constructor(
+    timeout: number,
+    persister: Persister,
+    logger: Logger,
+    decideTapCapture: () => boolean = () => false,
+  ) {
     this.timeout = timeout;
     this.persister = persister;
     this.logger = logger;
+    this.decideTapCapture = decideTapCapture;
+  }
+
+  /** Whether the current session records taps. */
+  capturesTaps(): boolean {
+    return this.session?.capturesTaps === true;
   }
 
   /**
@@ -105,6 +132,7 @@ export class SessionManager {
       id: generateId(),
       startedAt: timestamp,
       lastActivity: timestamp,
+      capturesTaps: this.decideTapCapture(),
     };
     this.logger.debug('New session started', this.session.id);
     this.persistSession();

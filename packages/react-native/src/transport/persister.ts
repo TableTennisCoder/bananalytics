@@ -139,7 +139,7 @@ export class Persister {
   }
 
   /** Saves session state. */
-  async saveSession(session: { id: string; startedAt: string; lastActivity: string }): Promise<void> {
+  async saveSession(session: { id: string; startedAt: string; lastActivity: string; capturesTaps?: boolean }): Promise<void> {
     try {
       await this.storage.setItem(SESSION_KEY, JSON.stringify(session));
     } catch (err) {
@@ -148,7 +148,7 @@ export class Persister {
   }
 
   /** Loads session state. */
-  async loadSession(): Promise<{ id: string; startedAt: string; lastActivity: string } | null> {
+  async loadSession(): Promise<{ id: string; startedAt: string; lastActivity: string; capturesTaps?: boolean } | null> {
     try {
       const data = await this.storage.getItem(SESSION_KEY);
       if (data) {
