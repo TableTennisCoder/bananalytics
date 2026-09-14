@@ -409,7 +409,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-[1120px] flex-col items-center justify-between gap-6 px-4 lg:px-12 py-8 sm:flex-row">
           <div className="flex items-center gap-2"><span className="text-sm">&#x1F34C;</span><span className="text-[12px] font-bold text-muted-foreground/60" style={{ fontFamily: 'var(--font-brand)' }}>Bananalytics</span></div>
           <div className="flex items-center gap-7 text-[12px] text-muted-foreground/40"><Link href="/docs" className="transition-colors hover:text-foreground">Docs</Link><Link href="/#faq" className="transition-colors hover:text-foreground">FAQ</Link><a href={LOGIN_URL} className="transition-colors hover:text-foreground">Dashboard</a><Link href="/about" className="transition-colors hover:text-foreground">About</Link><a href="https://github.com/TableTennisCoder/bananalytics" className="transition-colors hover:text-foreground">GitHub</a></div>
-          <p className="text-[11px] text-muted-foreground/25">MIT License</p>
+          <p className="text-[11px] text-muted-foreground/25">Built by an app founder, for app founders &middot; MIT License</p>
         </div>
       </footer>
     </div>

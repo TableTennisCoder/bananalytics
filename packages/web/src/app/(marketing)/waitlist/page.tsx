@@ -151,7 +151,7 @@ export default function WaitlistPage() {
             <span className="text-sm">&#x1F34C;</span>
             <span className="text-[12px] font-bold text-muted-foreground/60" style={{ fontFamily: "var(--font-brand)" }}>Bananalytics</span>
           </div>
-          <p className="text-[11px] text-muted-foreground/25">MIT License</p>
+          <p className="text-[11px] text-muted-foreground/25">Built by an app founder, for app founders &middot; MIT License</p>
         </div>
       </footer>
     </div>
