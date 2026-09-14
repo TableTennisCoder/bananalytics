@@ -19,6 +19,7 @@ install.sh           Ein-Kommando-Installer
 | [PLAN.md](PLAN.md) | Was als Nächstes gebaut wird, in Reihenfolge, mit Haken |
 | [DECISIONS.md](DECISIONS.md) | Warum etwas so ist — mit den Messwerten dahinter |
 | [ROADMAP.md](ROADMAP.md) | Was produktionsreif steht |
+| [.agents/product-marketing-context.md](.agents/product-marketing-context.md) | Wer der Kunde ist, wie er redet, was auf die Seite darf. Vor jeder Copy lesen |
 
 ## Am Ende einer Arbeitseinheit
 
