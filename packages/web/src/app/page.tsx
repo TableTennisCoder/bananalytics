@@ -84,7 +84,7 @@ export default function LandingPage() {
               Find where your app{" "}<span className="text-primary">loses money</span>.
             </h1>
             <p className="mx-auto mt-6 max-w-[560px] text-[16px] leading-[1.7] text-muted-foreground text-balance">
-              Product analytics for React Native apps with a paywall. See where users drop off before they pay, which release made it worse, and what each week&apos;s signups are worth — in views you&apos;ll actually open, not a query builder.
+              Product analytics for React Native apps with a paywall. See where users drop off before they pay &mdash; which screen, which segment, and what it costs you.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a href={DEMO_URL}><Button className="h-10 bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 gap-2">See the live demo <ArrowRight className="h-4 w-4" /></Button></a>
