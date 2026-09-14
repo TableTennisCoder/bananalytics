@@ -1287,8 +1287,11 @@ Bananalytics.init({
   endpoint: 'YOUR_ENDPOINT',         // Replace with your server URL (e.g. https://analytics.yourapp.com)
   flushInterval: 30000,              // Send events every 30s
   flushAt: 20,                       // Or when 20 events are queued
-  trackAppLifecycle: true,           // Auto-track app foreground/background
+  trackAppLifecycle: true,           // Auto-track app open, foreground, background
   debug: false,                      // Set true during development
+  // trackTaps: true,                // Optional: record where people tap.
+  //                                 // Needs <BananalyticsRoot> around the app,
+  //                                 // and roughly doubles event volume.
 });
 
 ## 4. Identify users
@@ -1439,6 +1442,91 @@ Bananalytics.trackRevenue(9.99, 'EUR', { product_id: 'pro_monthly' });
 // Flush events immediately
 await Bananalytics.flush();`}</CodeBlock>
 
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              Recording taps
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Where people tap, how long a screen was up, and whether a touch led
+              anywhere &mdash; the questions session recordings get watched for,
+              answered from events instead of video. Each touch becomes a{" "}
+              <code className="font-mono text-xs">$tap</code> carrying five
+              numbers and nothing about what was on the screen.
+            </p>
+            <CodeBlock lang="tsx">{`import { BananalyticsRoot } from '@bananalytics/react-native';
+
+Bananalytics.init({ apiKey: 'rk_...', endpoint: '...', trackTaps: true });
+
+// Wrap your app so touches can be seen — app/_layout.tsx with Expo Router
+<BananalyticsRoot>
+  <Stack />
+</BananalyticsRoot>`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              Off by default, because taps roughly double an app&apos;s event
+              volume. Turning it on also turns on screen tracking &mdash; a
+              coordinate without a screen name says nothing. Coordinates are in
+              density-independent pixels and the screen size travels with them,
+              so the same tap is comparable across devices and survives rotation.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              A touch that turns into a drag is not recorded: a scroll and a tap
+              look identical when a finger lands, and a recorded scroll would
+              look exactly like a tap that led nowhere.{" "}
+              <code className="font-mono text-xs">tapSampleRate</code> is decided
+              once per <em>session</em> rather than per touch, for the same
+              reason &mdash; a tap with no event after it means a broken button,
+              so dropping the follow-up event would report one that works
+              perfectly.
+            </p>
+
+            <h4 className="text-base font-semibold mt-8 mb-3">
+              Events you get without asking
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              These show up alongside the events you track yourself. The{" "}
+              <code className="font-mono text-xs">$</code> prefix marks them as
+              the SDK&apos;s own.
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-4 py-2 text-left font-medium">Event</th>
+                    <th className="px-4 py-2 text-left font-medium">When</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$app_opened</td>
+                    <td className="px-4 py-2 text-muted-foreground">The app starts. A cold start is not a foreground transition, so it needs its own event</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$app_foreground</td>
+                    <td className="px-4 py-2 text-muted-foreground">The app comes back from the background</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$app_background</td>
+                    <td className="px-4 py-2 text-muted-foreground">The app goes to the background. The queue is saved and flushed here</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$session_start / $session_end</td>
+                    <td className="px-4 py-2 text-muted-foreground">A session begins, or times out after <code className="font-mono text-xs">sessionTimeout</code></td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$screen</td>
+                    <td className="px-4 py-2 text-muted-foreground">A screen is shown, from <code className="font-mono text-xs">screen()</code> or the hook</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$screen_leave</td>
+                    <td className="px-4 py-2 text-muted-foreground">A screen is left, with <code className="font-mono text-xs">dwell_ms</code>. Backgrounding the app ends the count, so a phone in a pocket overnight does not report a fourteen hour visit</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">$tap</td>
+                    <td className="px-4 py-2 text-muted-foreground">Only with <code className="font-mono text-xs">trackTaps</code>, see above</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             <h4 className="text-base font-semibold mt-8 mb-3">React Provider</h4>
             <CodeBlock lang="tsx">{`import { BananalyticsProvider, useBananalytics, useTrackScreen } from '@bananalytics/react-native';
 
@@ -1477,7 +1565,10 @@ function HomeScreen() {
                   <ConfigRow option="maxQueueSize" default="1000" desc="Max events in memory" />
                   <ConfigRow option="maxRetries" default="3" desc="Retry attempts" />
                   <ConfigRow option="debug" default="false" desc="Console logging" />
-                  <ConfigRow option="trackAppLifecycle" default="true" desc="Auto-track foreground/background" />
+                  <ConfigRow option="trackAppLifecycle" default="true" desc="Auto-track app open, foreground and background" />
+                  <ConfigRow option="trackScreens" default="false" desc="Auto-track screen views" />
+                  <ConfigRow option="trackTaps" default="false" desc="Record where people tap. Turns on trackScreens too" />
+                  <ConfigRow option="tapSampleRate" default="1" desc="Share of sessions that record taps, 0 to 1" />
                   <ConfigRow option="sessionTimeout" default="1800000" desc="Session timeout (ms)" />
                 </tbody>
               </table>
@@ -1620,7 +1711,7 @@ export function useTrackScreen(
                 title="Engagement & Retention Signals"
                 description="These events feed your retention heatmap and help predict churn."
                 events={[
-                  { name: "session_started", props: "(auto-tracked)", why: "Session count per user = engagement health" },
+                  { name: "$session_start", props: "session_id (auto-tracked)", why: "Session count per user = engagement health" },
                   { name: "notification_received", props: "type, campaign_id", why: "Measure push notification effectiveness" },
                   { name: "notification_tapped", props: "type, campaign_id", why: "Tap rate = notification quality signal" },
                   { name: "rating_prompted", props: "days_since_install", why: "Optimize when to ask for reviews" },
@@ -1658,7 +1749,7 @@ export function useTrackScreen(
                   </tr>
                   <tr>
                     <td className="px-4 py-2 font-medium">Retention</td>
-                    <td className="px-4 py-2 text-muted-foreground">Any recurring action (session_started, feature_used)</td>
+                    <td className="px-4 py-2 text-muted-foreground">Any recurring action ($session_start, feature_used)</td>
                     <td className="px-4 py-2 text-muted-foreground">How many users come back on day 1, 7, 30</td>
                   </tr>
                   <tr>
@@ -1673,7 +1764,7 @@ export function useTrackScreen(
                   </tr>
                   <tr>
                     <td className="px-4 py-2 font-medium">Sessions</td>
-                    <td className="px-4 py-2 text-muted-foreground">session_started + any user-identified events</td>
+                    <td className="px-4 py-2 text-muted-foreground">$session_start + any user-identified events</td>
                     <td className="px-4 py-2 text-muted-foreground">Debug individual user journeys</td>
                   </tr>
                 </tbody>
