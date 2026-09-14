@@ -160,7 +160,7 @@ Diagramme zeigt: es gibt keinen Menschen, der bei einer komischen Zahl stutzt.
 ## Webseite und Infrastruktur
 
 - [ ] **Echte Fallstudie auf die Landingpage.** Die Befund-Karte zeigt Beispielzahlen aus den synthetischen Audit-Daten, sichtbar als „Example data" markiert. Echte Hairu-Zahlen per PostHog-MCP holen, in `FINDING` in `packages/web/src/app/page.tsx` eintragen, `isExample: false` — Label und Überschrift schalten von selbst um. **Nichts Synthetisches darf als Ergebnis erscheinen**
-- [ ] **`app.bananalytics.xyz` liefert kein Zertifikat.** DNS zeigt auf den VPS, aber Caddy bedient nur `BANANA_DOMAIN` (= `test.`). *Notlösung aktiv:* `dashboard-url.ts` zeigt auf `test.`, damit Demo- und Login-Button funktionieren. Sauber: `app.` in die Caddy-Site-Adresse aufnehmen, dann den Fallback zurückdrehen
+- [ ] **DRINGEND — Demo- und Login-Button sind live tot.** Beide zeigen auf `app.bananalytics.xyz`; das DNS zeigt auf den VPS, aber Caddy bedient nur `BANANA_DOMAIN` (= `test.`), also kein Zertifikat, HTTP 000. Der Code-Fallback in `dashboard-url.ts` (→ `test.`) greift **nur lokal**: in Produktion ist `NEXT_PUBLIC_DASHBOARD_URL` in den Hosting-Einstellungen auf `app.` gesetzt und gewinnt. Sofort-Fix (30 Sekunden, nur der Betreiber kann es): die Variable dort auf `https://test.bananalytics.xyz` stellen und neu deployen. Sauberer Fix: `app.` auf dem VPS in `BANANA_SITE_ADDRESS` aufnehmen, `docker compose up -d`, dann die Variable zurück auf `app.`
 - [ ] **`www.bananalytics.xyz`** antwortet über HTTP, hat über HTTPS kein Zertifikat
 - [x] ~~Nackter `https://github.com`-Link im Footer~~ — zeigt jetzt aufs Repo
 - [ ] **Nackter `https://github.com`-Link auf der About-Seite** (`about/page.tsx:86`)

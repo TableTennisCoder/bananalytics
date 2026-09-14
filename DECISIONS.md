@@ -51,7 +51,12 @@ Ergebnis — das ist die eine Regel, die eine Analytics-Firma nicht brechen darf
 - Setup-Schritt 1: `docker-compose up -d` statt des Installers
 - Footer: `https://github.com` ohne Repo
 - Demo- und Login-Button zeigten auf `app.bananalytics.xyz` — kein Zertifikat,
-  tot. Notlösung: Fallback auf `test.`, bis `app.` in der Caddy-Adresse steht
+  tot. Ein Code-Fallback auf `test.` wurde eingebaut und **griff in Produktion
+  nicht**: dort setzt `NEXT_PUBLIC_DASHBOARD_URL` in den Hosting-Einstellungen
+  die Adresse und gewinnt über den Code. Lehre: eine Konfiguration, die aus
+  zwei Quellen kommt, prüft man an der Stelle, die am Ende gilt — und das war
+  nicht der lokale Dev-Server, sondern das Live-HTML nach dem Deploy. Der
+  Deploy-Check hat es gefangen; ohne ihn wäre der Primär-CTA still tot geblieben
 
 ---
 
