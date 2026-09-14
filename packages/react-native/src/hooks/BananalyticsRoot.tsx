@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bananalytics } from '../index';
+import { getInstance } from '../core/instance';
 
 interface Props {
   children: React.ReactNode;
@@ -45,14 +45,14 @@ export function BananalyticsRoot({ children }: Props) {
       onStartShouldSetResponderCapture: (event: {
         nativeEvent: { pageX: number; pageY: number };
       }) => {
-        Bananalytics.__recordTouchStart(
+        getInstance()?.recordTouchStart(
           event.nativeEvent.pageX,
           event.nativeEvent.pageY,
         );
         return false;
       },
       onMoveShouldSetResponderCapture: () => {
-        Bananalytics.__recordTouchMove();
+        getInstance()?.recordTouchMove();
         return false;
       },
     },

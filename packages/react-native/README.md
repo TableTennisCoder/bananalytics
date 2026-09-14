@@ -81,6 +81,7 @@ interface BananalyticsConfig {
 | `Bananalytics.optIn()` | Resume tracking |
 | `Bananalytics.optOut()` | Stop tracking and discard anything still queued |
 | `Bananalytics.flush()` | Manually flush queued events |
+| `Bananalytics.recordTouchStart(x, y)` / `recordTouchMove()` | Record a touch by hand, for views `BananalyticsRoot` cannot see — a Modal renders into its own host view |
 
 Any event can carry revenue — adding `revenue` and `currency` to the properties
 of your own purchase event does the same thing as `trackRevenue`.

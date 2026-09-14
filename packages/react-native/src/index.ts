@@ -18,8 +18,7 @@ import { BananalyticsConfig } from './types/config';
 import { Properties } from './types/common';
 import { BananalyticsClient } from './core/client';
 import { AsyncStorageInterface } from './transport/persister';
-
-let instance: BananalyticsClient | null = null;
+import { getInstance, setInstance } from './core/instance';
 
 /**
  * Static facade for the BananalyticsSDK.
@@ -46,8 +45,8 @@ export const Bananalytics = {
         asyncStorage ??
         // eslint-disable-next-line @typescript-eslint/no-var-requires -- Auto-detect AsyncStorage
         require('@react-native-async-storage/async-storage').default;
-      instance = new BananalyticsClient(config, storage);
-      instance.initialize().catch((err) => {
+      setInstance(new BananalyticsClient(config, storage));
+      getInstance()!.initialize().catch((err) => {
         console.error('[Bananalytics] Initialization failed:', err);
       });
     } catch (err) {
@@ -62,7 +61,7 @@ export const Bananalytics = {
    * @param properties - Optional event properties
    */
   track(eventName: string, properties?: Properties): void {
-    instance?.track(eventName, properties);
+    getInstance()?.track(eventName, properties);
   },
 
   /**
@@ -72,7 +71,7 @@ export const Bananalytics = {
    * @param properties - Optional screen properties
    */
   screen(screenName: string, properties?: Properties): void {
-    instance?.screen(screenName, properties);
+    getInstance()?.screen(screenName, properties);
   },
 
   /**
@@ -94,7 +93,7 @@ export const Bananalytics = {
     properties?: Properties,
     eventName?: string,
   ): void {
-    instance?.trackRevenue(amount, currency, properties, eventName);
+    getInstance()?.trackRevenue(amount, currency, properties, eventName);
   },
 
   /**
@@ -104,45 +103,49 @@ export const Bananalytics = {
    * @param traits - Optional user traits
    */
   identify(userId: string, traits?: Properties): void {
-    instance?.identify(userId, traits);
+    getInstance()?.identify(userId, traits);
   },
 
   /** Clears user identity and generates a new anonymous ID. */
   reset(): void {
-    instance?.reset();
+    getInstance()?.reset();
   },
 
   /** Opts the user into tracking. */
   optIn(): void {
-    instance?.optIn();
+    getInstance()?.optIn();
   },
 
   /** Opts the user out of tracking. */
   optOut(): void {
-    instance?.optOut();
+    getInstance()?.optOut();
   },
 
   /** Manually flushes all queued events. */
   async flush(): Promise<void> {
-    await instance?.flush();
+    await getInstance()?.flush();
   },
 
   /**
-   * Called by BananalyticsRoot when a touch lands. Not part of the public API —
-   * wrap your app in BananalyticsRoot instead of calling this.
+   * Records a touch by hand, for views `BananalyticsRoot` cannot see.
    *
-   * @internal
+   * Wrapping the app in `BananalyticsRoot` is the normal way; this exists for
+   * the cases it misses. React Native renders a Modal into its own host view,
+   * so touches inside one may never reach the app root — attaching
+   * `onStartShouldSetResponderCapture` inside the Modal and calling this from
+   * it covers that.
+   *
+   * Does nothing unless `trackTaps` is on and the session is one that records.
    */
-  __recordTouchStart(pageX: number, pageY: number): void {
-    instance?.recordTouchStart(pageX, pageY);
+  recordTouchStart(pageX: number, pageY: number): void {
+    getInstance()?.recordTouchStart(pageX, pageY);
   },
 
   /**
-   * Called by BananalyticsRoot when a touch turns into a drag.
-   *
-   * @internal
+   * Cancels a touch recorded with `recordTouchStart` because it became a drag.
+   * Call from `onMoveShouldSetResponderCapture` alongside it.
    */
-  __recordTouchMove(): void {
-    instance?.recordTouchMove();
+  recordTouchMove(): void {
+    getInstance()?.recordTouchMove();
   },
 };
