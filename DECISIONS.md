@@ -9,6 +9,56 @@ gemessen, nicht geschätzt.
 
 ---
 
+## 2026-09-15 — Eine echte Analyse-Session als Messlatte
+
+**Quelle:** Hairu-Session vom selben Tag, PostHog + Neon, protokolliert in
+`hairu-mobile-app/docs/analytics/ANALYTICS_FINDINGS_2026-09-15.md`. Elf
+Fragen, jede mit der Query-Form, die sie brauchte. Abgleich in PLAN.md.
+
+**Was sie über das Produkt sagt.** Die vier Befunde der Session sind exakt
+die Sorte, die der Auto-Scan liefern soll — und alle vier waren *Segment-
+Vergleiche*, keine Einzelzahlen:
+
+- `meet_milo → analysis_capture` verliert 15,7 % — **jede Woche seit Juli,
+  auf iOS wie Android, in 79–88 % aller Länder**. Strukturell, nicht Traffic.
+  Das Erkennungsmuster: ein Drop-off, der über *alle* Dimensionen gleich ist,
+  liegt am Screen, nicht am Segment
+- Checkout → Kauf: iOS 11,5 %, Android 2,0 %. Innerhalb von Tier-1-Ländern
+  bleibt der Faktor 2,4 — also Plattform, nicht Traffic-Mix. Erkennungsmuster:
+  ein Unterschied, der *innerhalb* jeder anderen Dimension bestehen bleibt
+- Das vorausgewählte 12,99-€-Paket: 80 % der Android-Checkouts, 1 %
+  Conversion; das 10er-Paket konvertiert 5–6× besser. Erkennungsmuster:
+  Breakdown nach `product_id` × OS × Version — **dreidimensional**
+- Tier-3-Länder: 20 % der Installs, 25 % der Checkouts, 4 % der Käufer
+
+Der Founder hat für diese vier Befunde einen Tag mit einem Agenten und
+HogQL gebraucht. Das ist die Latte, unter der ein Auto-Scan durch muss.
+
+**Zwei Dinge, die PostHog dort nicht konnte und Bananalytics kann.**
+Wörtlich aus dem Protokoll: *„no screen/lifecycle events — couldn't see what
+happens on the photo screen before submit."* Das größte Loch der App —
+8.100 Personen im Monat — sitzt auf einem Screen, auf dem PostHog blind
+war. `$screen_leave` mit `dwell_ms` und `$tap` sind genau dafür gebaut.
+Und: *„uniq on persons pre-identify vs post-identify can double count around
+signup."* `events_resolved` mit `person_id` löst das. Beides gehört auf die
+Seite, sobald es auf Hairu belegt ist.
+
+**Eine Integrations-Falle, am Payload gesehen.** Hairu sendet
+`purchase_completed {price, currency, revenue_usd}`; der Server liest
+`revenue`/`$revenue`. Ohne `revenue: price` beim Einbau bleibt jeder Kauf
+umsatzlos — still. Und `price` darf kein Server-Schlüssel werden:
+`checkout_started` trägt dieselbe Property, jeder Checkout würde zum Kauf.
+
+**Was gestrichen bleibt.** Q4 („beeinflusst der Notification-Prompt die
+Conversion?") ist eine `argMax`-pro-Person-Abfrage über Events. Kein
+Person-Properties-Modell nötig. C7 bleibt draußen.
+
+**Nicht auf die Seite ohne Freigabe.** Die Zahlen sind echt und stammen aus
+der App des Founders; sie zeigen Käuferzahlen und damit Umsatzgröße. Ob sie
+öffentlich werden, entscheidet er — nicht diese Datei.
+
+---
+
 ## 2026-09-15 — Landingpage: Umsatz zuerst, Ownership zuletzt
 
 **Entscheidung:** Die Seite führt mit „Find where your app loses money." Privacy,

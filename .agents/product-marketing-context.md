@@ -125,8 +125,25 @@ That figure came from *synthetic* data seeded during the feature audit. It is
 fine as an illustrative example clearly framed as one. It is not a case study.
 
 **The strongest social proof available** is the founder's own app: a real
-finding from Hairu, with real numbers, in the founder's words. Get that on the
-page as soon as there is one.
+finding from Hairu, with real numbers, in the founder's words.
+
+### Real Hairu findings — measured, NOT yet approved for publication
+
+Source: `hairu-mobile-app/docs/analytics/ANALYTICS_FINDINGS_2026-09-15.md`,
+30 days 2026-08-16 → 09-15, unique persons. These reveal buyer counts and thus
+revenue scale. **Do not put any of them on the site until the founder says
+which ones.** Once approved, they replace the synthetic `FINDING` on the landing
+page and `isExample` flips to false.
+
+| Finding | Numbers | Why it sells |
+|---|---|---|
+| Paywall → Checkout → Purchase by platform | iOS 18,095 → 6,212 → 716 (4.0 %); Android 24,509 → 12,271 → 249 (1.0 %) | Android reaches checkout *more* often (50 % vs 34 %) and buys 5.7× less often after it. The leak is inside checkout, not before it — a finding only a segmented funnel shows |
+| The pre-selected pack was a price shock | Android €12.99 pack: 9,862 checkouts → 97 buyers (1.0 %); the €7.99 pack: 1,574 → 81 (5.1 %). Ladder re-mapped as a result | Found the leak, changed the product. The full story arc |
+| The biggest onboarding leak | `meet_milo → analysis_capture` −15.7 %, ~8,100 people a month, flat every week since July, same on both platforms | Structural, not traffic — and on a screen PostHog could not see into |
+| Tier-3 countries burn checkouts | 20 % of installs, 25 % of checkouts, 4 % of buyers | Where *not* to optimise is a finding too |
+
+Safe-to-say without approval: nothing above. Safe in the abstract: "the founder
+runs it on his own app with tens of thousands of new users a month."
 
 ---
 

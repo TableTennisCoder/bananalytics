@@ -110,6 +110,42 @@ Das eigentliche Produkt: nicht „hier ist ein Breakdown-Picker", sondern
 
 ---
 
+## Abgleich mit einer echten Analyse-Session (Hairu, 2026-09-15)
+
+`D:\Coding\hairu-mobile-app\docs\analytics\ANALYTICS_FINDINGS_2026-09-15.md`
+protokolliert jede Frage, die in einer Session mit PostHog + Neon gestellt wurde.
+Das ist die Messlatte: kann Bananalytics dieselbe Session tragen?
+
+| # | Frage | Heute | Womit |
+|---|---|---|---|
+| Q1 | Personen pro Funnel-Schritt, nach OS | **ja** | `/query/funnel?breakdown=platform` — aber nur mit Event-Namen als Schritt; Hairus Onboarding ist *ein* Event mit `step_name` → braucht Property-Schritte |
+| Q2 | Drop-off zwischen zwei Schritten, pro Woche | nein | SQL (Punkt 2), plus `week` als Intervall |
+| Q3 | Median / p90 zwischen zwei Events **pro Person** | nur p50 | SQL; danach Quantile im Funnel-Endpoint |
+| Q4 | Beeinflusst Wahl X (Notification-Prompt) spätere Conversion | nein | SQL: `argMax` pro Person + Folge-Event-Flags. **Kein** Person-Properties-Modell nötig — bestätigt, dass C7 gestrichen bleibt |
+| Q5 | Funnel pro Land / Tier | teilweise | Breakdown nach Land ja; Tier-Mapping war auch bei PostHog ein Skript daneben |
+| Q6 | Checkout→Kauf nach Produkt × OS × Version | nein | mehrdimensionaler Breakdown (D5) oder SQL |
+| Q7 | Retries pro Person, ≥3 Versuche, Kauf nach Retry | teilweise | wiederholte Funnel-Schritte geben p50 und Personen pro Tiefe; „Kauf nach Retry" braucht SQL |
+| Q8 | Verhalten nach Kauf mit Follow-up-Fenster | nein | SQL mit Zeitfenster-Guard |
+| Q9 | Wöchentlich Milo-Nutzer vs. Käufer | nein | SQL, `week` |
+| Q10 | Welche Property-Werte gibt es für ein Event | nein | Katalog mit Werten (B1) — `describe_schema` im MCP |
+| Q11 | Ist ein Event-Name gültig | nein | PostHog hat `photo_uploaded` als unbekannt markiert. Das ist B2 — und ein Feature, das der Founder real genutzt hat |
+
+**Ergebnis:** 1 von 11 heute vollständig. 7 von 11 fallen mit Punkt 2 (SQL).
+Q1/Q6/Q10/Q11 brauchen eigene Arbeit — Property-Schritte, mehrdimensionaler
+Breakdown, Katalog mit Werten, Unbekannt-Warnung. Die Reihenfolge im Plan
+stimmt damit; die vier gehören direkt hinter SQL und MCP.
+
+**Was PostHog in dieser Session nicht konnte und Bananalytics schon kann:**
+- „no screen/lifecycle events — couldn't see what happens on the photo screen before submit" → `$screen`, `$screen_leave` mit `dwell_ms`, `$tap` (0.3.0). Genau das Loch von 8.100 Personen/Monat zwischen `meet_milo` und `analysis_capture` wäre damit sichtbar
+- „uniq on persons pre-identify vs post-identify can double count around signup" → `events_resolved` mit `person_id` löst genau das. Als Argument auf die Seite
+
+**Für die Hairu-Integration konkret:**
+- [ ] **Umsatz kommt nicht an.** Hairu sendet `purchase_completed {price, currency, revenue_usd}`. Der Server liest `revenue`/`$revenue`. Also: `revenue: price` beim Einbau mitgeben — `price` darf serverseitig **nicht** als Umsatz-Schlüssel gelten, weil `checkout_started` dieselbe Property trägt und dann jeder Checkout als Kauf zählen würde
+- [ ] **Super-Properties werden gebraucht** (A2): Hairu registriert `store_country`, `geo_tier`, `locale`, `app_version` auf jedem Event. Ohne `register()` muss das bei jedem `track()` mit — rutscht damit von „nice to have" in die Integrationsvoraussetzung
+- [ ] **`store_country` (Gerät) vs. GeoIP (IP)** widersprechen sich bei Reisenden. Bananalytics hat nur GeoIP. Ein Geräte-Region-Feld im Context wäre die ehrlichere Dimension für Store-Preise
+
+---
+
 ## Query-Engine — Lücken aus dem Audit
 
 Teile davon erledigen sich mit Punkt 2. Diese hier nicht:
